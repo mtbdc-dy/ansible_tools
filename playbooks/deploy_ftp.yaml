@@ -1,0 +1,34 @@
+---
+#
+# Description:
+#
+
+- hosts: ftp
+  remote_user: ansible_ssh_user
+  become: yes
+  become_method: su
+  gather_facts: True
+
+  # 假如在安装 vsftpd 的过程中，目标机器存在旧版本的 vsftpd，需要指定卸载
+  # 则给用户交互下达命令
+  vars_prompt:
+    - name: is_uninstalled
+      prompt: "Do you want to uninstall existing vsftpd?(yes/no)"
+      private: no
+      default: "yes"
+
+    - name: ftp_type
+      prompt: "What kind of FTP software do you want to install?(sftp/vsftp)"
+      private: no
+      default: "vsftp"
+
+    # 如何在安装 vsftpd 时，才提示用户交互的方法还未找到，后续修复
+    - name: compile_or_yum
+      prompt: "Do you want to install by source or package manager?(compile/yum)"
+      private: no
+      default: "yum"
+      when: ftp_type == "vsftp"
+
+  roles:
+    - role: ftp
+      tags: ftp

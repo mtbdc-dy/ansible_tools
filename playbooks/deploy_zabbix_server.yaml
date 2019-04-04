@@ -1,0 +1,14 @@
+---
+#
+# Description:
+#
+
+- hosts: zabbix_server
+  remote_user: ansible_ssh_user
+  become: yes
+  become_method: su
+  gather_facts: True
+
+  roles:
+    - role: zabbix_server
+      tags: zabbix_server

@@ -1,0 +1,14 @@
+---
+#
+#
+#
+
+- hosts: squid
+  remote_user: ansible_ssh_user
+  become: yes
+  become_method: su
+  gather_facts: True
+
+  roles:
+    - role: squid
+      tags: squid

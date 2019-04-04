@@ -1,0 +1,15 @@
+---
+#
+# Description: 
+#     zabbix_server 依赖 LAMP 环境，所以安装 mysql 与 zabbix_server 在同一台主机
+#     单独安装时，请修改 hosts.ini 中的 zabbix_server 主机组信息
+
+- hosts: mysql
+  remote_user: ansible_ssh_user
+  become: yes
+  become_method: su
+  gather_facts: True
+
+  roles:
+    - role: mysql
+      tags: mysql
