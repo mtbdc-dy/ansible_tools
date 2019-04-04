@@ -1,0 +1,215 @@
+---
+# tasks file for common
+#
+# Description: 
+#     调整操作系统的一些参数、安装并启停某些指定的服务、设置时间服务器、
+#     关闭 selinux、设置 http 代理、调整 仓库源   
+#
+
+# 因为 ansible 远程是 no shell 登陆，不会生效 /etc/profile
+# 所以，将 http_proxy 和 https_proxy 变量添加 到 /etc/bashrc, ~/.bash_profile
+- name: setup http_proxy and https_proxy
+  lineinfile:
+    path: "{{ item.file }}"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+  with_items:
+    - { file: "/etc/bashrc", regexp: "^http_proxy=", line: "export\ http_proxy={{ http_proxy }}" }
+    - { file: "/etc/bashrc", regexp: "^https_proxy=", line: "export\ https_proxy={{ https_proxy }}" }
+    - { file: "~/.bash_profile", regexp: "^http_proxy=", line: "export\ http_proxy={{ http_proxy }}" }
+    - { file: "~/.bash_profile", regexp: "^https_proxy=", line: "export\ https_proxy={{ https_proxy }}" }
+    - { file: "/etc/yum.conf", regexp: "^proxy=", line: "proxy={{ http_proxy }}" }
+  when: (ansible_distribution == "CentOS" or ansible_os_family == "RedHat") and http_proxy != "" and https_proxy != ""
+
+# 在 访问公网/不能访问公网 环境下的 repo 设置、安装基础软件(gcc gcc-c++ make cmake openssl 等)、更新系统
+- name: setup 163 yum repository
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: 0644
+    backup: yes
+  with_items:
+    - { src: "CentOS6-Base-163.repo", dest: "/etc/yum.repos.d/CentOS-Base.repo", os_distribution: "CentOS", major_version: "6" }
+    - { src: "CentOS7-Base-163.repo", dest: "/etc/yum.repos.d/CentOS-Base.repo", os_distribution: "CentOS", major_version: "7" }
+  when: http_proxy == "" and item.os_distribution == ansible_distribution and item.major_version == ansible_distribution_major_version
+
+- name: download 163 yum repository
+  get_url:
+    url: "{{ item.url }}"
+    dest: "/etc/yum.repos.d/CentOS-Base.repo"
+    validate_certs: False
+  environment:
+    http_proxy: "{{ http_proxy | default('') }}"
+  with_items:
+    - { url: "http://mirrors.163.com/.help/CentOS6-Base-163.repo", os_distribution: "CentOS", major_version: "6" }
+    - { url: "http://mirrors.163.com/.help/CentOS7-Base-163.repo", os_distribution: "CentOS", major_version: "7" }
+  when: http_proxy != "" and item.os_distribution == ansible_distribution and item.major_version == ansible_distribution_major_version
+
+# 由于有些软件在 centos6 和 centos7 下存在区别
+- name: install development tools
+  yum:
+    name:
+      - wget
+      - lrzsz
+      - telnet
+      - net-tools
+      - vim
+      - unzip
+      - ipset
+      - iptables
+      - ntpdate
+      - yum-utils
+      - libffi-devel
+      - device-mapper-persistent-data
+      - conntrack-tools
+      - libtool-ltdl
+      - libselinux-python
+      - epel-release
+      - expect
+      - tcl
+      - openssl
+      - openssl-devel
+      - pcre
+      - bridge-utils
+      - pcre-devel
+      - zlib
+      - zlib-devel
+      - curl
+      - curl-devel
+      - expat-devel
+    state: present
+    update_cache: yes
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+- name: install development tools on {{ ansible_distribution }}-7
+  yum:
+    name:
+      - firewalld
+      - firewalld-filesystem
+      - libseccomp
+      - python-slip
+      - python-slip-dbus
+      - python-netaddr
+    state: present
+    update_cache: yes
+  when: (ansible_distribution == "CentOS" or ansible_os_family == "RedHat") and ansible_distribution_major_version | int == 7
+
+- name: install the 'Development tools' package group
+  yum:
+    name: "@Development tools"
+    state: present
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+- name: update all packages
+  yum:
+    name: '*'
+    state: latest
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+# 加载基础内核模块, 比如: br_netfilter bridge 等
+- name: modprobe function module
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - "bridge"
+    #- "br_netfilter"
+
+# 关闭 selinux、停用 swap 空间、修改内核参数等
+- name: disabled selinux, delete br_netfilter mode and swap off
+  lineinfile:
+    dest: "{{ item.dest }}"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  with_items:
+    - { dest: "/etc/selinux/config", regexp: "^SELINUX=", line: "SELINUX=disabled" }
+    - { dest: "/etc/fstab", regexp: ".*swap.*", line: "" }
+    - { dest: "/etc/rc.d/rc.local", regexp: "^modprobe\ br_netfilter", line: "modprobe\ br_netfilter" }
+    - { dest: "/etc/rc.d/rc.local", regexp: "^modprobe\ bridge", line: "modprobe\ bridge" }
+    - { dest: "/etc/profile", regexp: "^ulimit\ -HSn", line: "ulimit\ -HSn 65536" }
+    - { dest: "/etc/rc.local", regexp: "^ulimit\ -HSn", line: "ulimit\ -HSn 65536" }
+    # 以下修改内核参数
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.ip_forward\ =\ 0", line: "net.ipv4.ip_forward\ =\ 1" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.conf.default.rp_filter\ =\ 1", line: "net.ipv4.conf.default.rp_filter\ =\ 1" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.conf.default.accept_source_route\ =\ 0", line: "net.ipv4.conf.default.accept_source_route\ =\ 0" }
+    - { dest: "/etc/sysctl.conf", regexp: "kernel.sysrq\ =\ 0", line: "kernel.sysrq\ =\ 0" }
+    - { dest: "/etc/sysctl.conf", regexp: "kernel.core_uses_pid\ =\ 1", line: "kernel.core_uses_pid\ =\ 1" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.tcp_syncookies\ =\ 1", line: "net.ipv4.tcp_syncookies\ =\ 1" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.bridge.bridge-nf-call-ip6tables\ =\ 0", line: "net.bridge.bridge-nf-call-ip6tables\ =\ 0" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.bridge.bridge-nf-call-iptables\ =\ 0", line: "net.bridge.bridge-nf-call-iptables\ =\ 0" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.bridge.bridge-nf-call-arptables\ =\ 0", line: "net.bridge.bridge-nf-call-arptables\ =\ 0" }
+    - { dest: "/etc/sysctl.conf", regexp: "kernel.msgmnb\ =\ 65536", line: "kernel.msgmnb\ =\ 65536" }
+    - { dest: "/etc/sysctl.conf", regexp: "kernel.msgmax\ =\ 65536", line: "kernel.msgmax\ =\ 65536" }
+    - { dest: "/etc/sysctl.conf", regexp: "kernel.shmmax\ =\ 4294967295", line: "kernel.shmmax\ =\ 4294967295" }
+    - { dest: "/etc/sysctl.conf", regexp: "kernel.shmall\ =\ 268435456", line: "kernel.shmall\ =\ 268435456" }
+    - { dest: "/etc/sysctl.conf", regexp: "kernel.shmmni\ =\ 4096", line: "kernel.shmmni\ =\ 4096" }
+    - { dest: "/etc/sysctl.conf", regexp: "kernel.sem\ =\ 5010\ 641280\ 5010\ 128", line: "kernel.sem\ =\ 5010\ 641280\ 5010\ 128" }
+    - { dest: "/etc/sysctl.conf", regexp: "fs.file-max\ =\ 65536", line: "fs.file-max\ =\ 65536" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.tcp_tw_reuse\ =\ 1", line: "net.ipv4.tcp_tw_reuse\ =\ 1" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.tcp_tw_recycle\ =\ 1", line: "net.ipv4.tcp_tw_recycle\ =\ 1" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.tcp_fin_timeout\ =\ 30", line: "net.ipv4.tcp_fin_timeout\ =\ 30" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.tcp_keepalive_time\ =\ 1200", line: "net.ipv4.tcp_keepalive_time\ =\ 1200" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.tcp_keepalive_intvl\ =\ 2", line: "net.ipv4.tcp_keepalive_intvl\ =\ 2" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.tcp_keepalive_probes\ =\ 2", line: "net.ipv4.tcp_keepalive_probes\ =\ 2" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.ip_local_port_range\ =\ 10000\ 65000", line: "net.ipv4.ip_local_port_range\ =\ 10000\ 65000" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.tcp_max_syn_backlog\ =\ 8192", line: "net.ipv4.tcp_max_syn_backlog\ =\ 8192" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.tcp_max_tw_buckets\ =\ 5000", line: "net.ipv4.tcp_max_tw_buckets\ =\ 5000" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.icmp_echo_ignore_broadcasts\ =\ 1", line: "net.ipv4.icmp_echo_ignore_broadcasts\ =\ 1" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.icmp_ignore_bogus_error_responses\ =\ 1", line: "net.ipv4.icmp_ignore_bogus_error_responses\ =\ 1" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.conf.all.log_martians\ =\ 1", line: "net.ipv4.conf.all.log_martians\ =\ 1" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.tcp_max_syn_backlog\ =\ 4096", line: "net.ipv4.tcp_max_syn_backlog\ =\ 4096" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.tcp_rmem\ =\ 4096\ 87380\ 16777216", line: "net.ipv4.tcp_rmem\ =\ 4096\ 87380\ 16777216" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.tcp_wmem\ =\ 4096\ 65536\ 16777216", line: "net.ipv4.tcp_wmem\ =\ 4096\ 65536\ 16777216" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.ipv4.tcp_retries2\ =\ 5", line: "net.ipv4.tcp_retries2\ =\ 5" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.core.somaxconn\ =\ 4096", line: "net.core.somaxconn\ =\ 4096" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.netfilter.nf_conntrack_tcp_timeout_established\ =\ 300", line: "net.netfilter.nf_conntrack_tcp_timeout_established\ =\ 300" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.netfilter.nf_conntrack_tcp_timeout_time_wait\ =\ 12", line: "net.netfilter.nf_conntrack_tcp_timeout_time_wait\ =\ 12" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.netfilter.nf_conntrack_tcp_timeout_close_wait\ =\ 60", line: "net.netfilter.nf_conntrack_tcp_timeout_close_wait\ =\ 60" }
+    - { dest: "/etc/sysctl.conf", regexp: "net.netfilter.nf_conntrack_tcp_timeout_fin_wait\ =\ 120", line: "net.netfilter.nf_conntrack_tcp_timeout_fin_wait\ =\ 120" }
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+- name: enable parameters to take effect
+  shell: "{{ item }}"
+  with_items:
+    - "source /etc/bashrc"
+    - "source /etc/profile"
+    - "source ~/.bash_profile"
+  when: ansible_env.SHELL == "/bin/bash"
+
+# 由于 Redhat6/7 中的系统命令路径不同，为避免报错，则指定绝对路径
+- name: enable parameters to take effect
+  shell: "{{ item.command }}"
+  with_items:
+    - { command: "/sbin/sysctl -p", os_family: "RedHat", os_version: "6" }
+    - { command: "/usr/sbin/sysctl -p", os_family: "RedHat", os_version: "7" }
+  when: ansible_os_family == item.os_family and ansible_distribution_major_version  == item.os_version
+
+# 设置 ntp 时间同步
+- name: ntpdate time
+  cron:
+    name: "ntpdate"
+    hour: "1"
+    job: "/usr/bin/ntpdate {{ ntpdate_server }}"
+
+# 设置 用户的资源使用，默认开放最大资源
+- name: setup limits.conf
+  template:
+    src: "limits.conf.j2"
+    dest: "/etc/security/limits.conf"
+    mode: 0644
+    owner: root
+    group: root
+
+# 以下为其他服务设置
+- include: setup_free_password_login.yaml
+
+- include: start_or_stop_service.yaml
+
+- include: setup_iptables.yaml
+  when: (ansible_distribution == "CentOS" or ansible_os_family == "RedHat") and ansible_distribution_major_version | int == 6
+
+- include: setup_firewalld.yaml
+  when: (ansible_distribution == "CentOS" or ansible_os_family == "RedHat") and ansible_distribution_major_version | int == 7

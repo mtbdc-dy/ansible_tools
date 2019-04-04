@@ -1,0 +1,115 @@
+- name: create redis group
+  group:
+    name: "{{ redis_group }}"
+    state: present
+
+- name: create redis user
+  user:
+    name: "{{ redis_user }}"
+    comment: "redis cluster user"
+    state: present
+    create_home: no
+    shell: /usr/bin/false
+    group: "{{ redis_group }}"
+
+- name: create redis binary dir
+  file:
+    path: "{{ redis_bin_dir }}"
+    state: directory
+    owner: "{{ redis_user }}"
+    group: "{{ redis_group }}"
+    recurse: yes
+
+- name: upload compile_redis.sh
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0755
+  delegate_to: "{{ groups['redis'][0] }}"
+  run_once: true
+  with_items:
+    - { src: "{{ redis_source_version }}", dest: "/tmp/{{ redis_source_version }}" }
+    - { src: "compile_redis.sh", dest: "/tmp/compile_redis.sh" }
+
+- name: install dependencies for compile redis source code
+  yum:
+    name:
+      - make
+      - cmake
+      - automake
+      - autoconf
+      - gcc
+      - gcc-c++
+    state: present
+  delegate_to: "{{ groups['redis'][0] }}"
+  run_once: true
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+- name: compile redis source code
+  command:
+    "/tmp/compile_redis.sh"
+  delegate_to: "{{ groups['redis'][0] }}"
+  run_once: true
+  environment:
+    REDIS_SOURCE_CODE: "/tmp/{{ redis_source_version }}"
+
+# 在远程主机之间传输文件,经测试,未成功
+# - name: distributing redis executable program to each node
+#   synchronize:
+#     src: "/tmp/{{ redis_source_version | regexp_replace('.tar.gz', '') }}/src/{{ item }}"
+#     dest: "{{ redis_bin_dir }}/"
+#     mode: pull
+#     dest_port: "{{ ansible_ssh_port }}"
+#   delegate_to: "{{ groups['redis-cluster'][0] }}"
+#   with_items:
+#     - "redis-trib.rb"
+#     - "mkreleasehdr.sh"
+#     - "redis-server"
+#     - "redis-sentinel"
+#     - "redis-cli"
+#     - "redis-benchmark"
+#     - "redis-check-rdb"
+#     - "redis-check-aof"
+
+# 替代方法,利用 fetch 模块,下载编译好的文件到中控机器,再分发到各节点
+- name: fetch redis executable program to local
+  fetch:
+    src: "/tmp/{{ redis_source_version | replace('.tar.gz', '') }}/src/{{ item }}"
+    dest: "{{ inventory_dir }}/../roles/redis-cluster/files/"
+    flat: yes
+  run_once: true
+  delegate_to: "{{ groups['redis'][0] }}"
+  with_items:
+    - "redis-trib.rb"
+    - "mkreleasehdr.sh"
+    - "redis-server"
+    - "redis-sentinel"
+    - "redis-cli"
+    - "redis-benchmark"
+    - "redis-check-rdb"
+    - "redis-check-aof"
+
+- name: distributing redis executable program to each node
+  copy:
+    src: "{{ inventory_dir }}/../roles/redis-cluster/files/{{ item }}"
+    dest: "{{ redis_bin_dir }}/{{ item }}"
+    mode: 0755
+    owner: "{{ redis_user }}"
+    group: "{{ redis_group }}"
+  with_items:
+    - "redis-trib.rb"
+    - "mkreleasehdr.sh"
+    - "redis-server"
+    - "redis-sentinel"
+    - "redis-cli"
+    - "redis-benchmark"
+    - "redis-check-rdb"
+    - "redis-check-aof"
+
+- name: delete redis source code
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "/tmp/{{ redis_source_version }}"
+    - "/tmp/compile_redis.sh"

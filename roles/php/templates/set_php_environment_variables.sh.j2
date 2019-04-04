@@ -1,0 +1,5 @@
+PHP_HOME={{ php_install_dir }}
+if [ -d ${PHP_HOME} ]
+then
+    export PATH=${PHP_HOME}/bin:${PHP_HOME}/sbin:${PATH}
+fi

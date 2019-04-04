@@ -1,0 +1,26 @@
+- name: modify {{ tomcat_unarchive_dir }} directory properties
+  file:
+    path: "{{ tomcat_unarchive_dir  }}"
+    recurse: yes
+    owner: "{{ tomcat_user }}"
+    group: "{{ tomcat_group }}"
+
+- name: configure tomcat
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - { src: "server.xml.j2", dest: "{{ tomcat_unarchive_dir  }}/conf/server.xml", mode: "0744" }
+    - { src: "tomcat_service.sh.j2", dest: "/etc/init.d/tomcat", mode: "0755" }
+    - { src: "tomcat_logrotate.sh.j2", dest: "{{ operate_tomcat_scripts_dir }}/tomcat_logrotate.sh", mode: "0755"}
+
+# 定时切割日志
+- name: regularly cut tomcat logs
+  cron:
+    name: "logrotate tomcat log"
+    minute: "*/5"
+    user: root
+    job: "/bin/bash {{ operate_tomcat_scripts_dir }}/tomcat_logrotate.sh"
+      
+  

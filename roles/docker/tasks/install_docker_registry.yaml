@@ -1,0 +1,26 @@
+# 验证 docker 是否被正确的安装
+- name: judge whether docker is installed correctly
+  stat:
+    path: "/usr/sbin/docker"
+  register: docker_version
+
+- name: failure to exit 
+  fail:
+    msg: "Docker is not properly installed."
+  when: not apache_result.stat.exists
+
+- name: start docker registry
+  shell:
+    "docker run -d -p {{ export_port }}:{{ docker_registry_port }} -v {{ export_store_path }}:{{ docker_store_path }} --restart=always --name registry registry:2"
+
+- name: judege docker is started
+  shell: "netstat -tunlp | grep {{ export_port }}"
+  register: is_started
+
+- name: failure to started
+  fail:
+    msg: "Docker is not properly started."
+  when: is_started.stdout == ""
+
+# 如下步骤是设置 https
+# TODO

@@ -1,0 +1,16 @@
+- name: uninstall existing vsftpd
+  yum:
+    name:
+      - vsftpd
+    state: absent
+  when: (ansible_distribution == "CentOS" or ansible_os_family == "RedHat") and is_uninstalled == "yes"
+
+- name: install latest vsftpd
+  yum:
+    name:
+      - vsftpd
+      - libcap
+      - tcp_wrappers
+      - tcp_wrappers-devel
+    state: present
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"

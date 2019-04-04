@@ -1,0 +1,23 @@
+- name: install the zabbix repository
+  yum:
+    # https://repo.zabbix.com/zabbix/3.0/rhel/{{ ansible_distribution_major_version  }}/{{ ansible_architecture }}/zabbix-release-3.0-1.el{{ ansible_distribution_major_version }}.noarch.rpm
+    name: 
+      - "{{ zabbix_repository_url }}"
+      - zabbix-agent
+    state: present
+    disable_gpg_check: yes
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+- name: configure zabbix_agent
+  template:
+    src: zabbix_agentd.conf.j2
+    dest: "/etc/zabbix/zabbix_agentd.conf"
+    mode: 0644
+    owner: root
+    group: root
+
+- name: start zabbix-agent
+  service:
+    name: zabbix-agent
+    enabled: yes
+    state: restarted

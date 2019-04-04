@@ -1,0 +1,17 @@
+- name: reload zabbix_agentd and zabbix_server service
+  shell: "systemctl daemon-reload"
+  when: (ansible_distribution == "CentOS" or ansible_os_family == "RedHat") and ansible_distribution_major_version | int == 7
+
+- name: start zabbix service
+  service:
+    name: "{{ item }}"
+    enabled: yes
+    state: started
+  with_items:
+    - zabbix_server
+    - zabbix_agentd
+
+- name: restart web service
+  service:
+    name: "{{ web_type }}"
+    state: restarted

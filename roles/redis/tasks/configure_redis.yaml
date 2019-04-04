@@ -1,0 +1,18 @@
+---
+#
+# redis cluster 每一个 实例的配置
+#
+
+# - name: get redis cluster master nodes and slave length
+#   set_fact:
+#     master_length: "{{ cluster['master'] | length }}"
+#     slave_length: "{{ cluster['slave'] | length }}"
+
+# - name: print master node info
+#   debug:
+#     msg: "{% for node in cluster['master'] %} ip: {{ node.ip }} <-> port: {{ node.port }} {% endfor %}"
+
+- name: set master and slave nodes
+  set_fact:
+    master_nodes: "{% for node in cluster['master'] %}{{ node.ip }}:{{ node.port }}{%- if not loop.last -%},{%- endif -%}{% endfor %}"
+    slave_nodes: "{% for node in cluster['slave'] %}{{ node.ip }}:{{ node.port }}{%- if not loop.last -%},{%- endif -%}{% endfor %}"

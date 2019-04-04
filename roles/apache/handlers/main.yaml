@@ -1,0 +1,25 @@
+- name: create apache log
+  file:
+    path: "{{ item.path }}"
+    state: touch
+    mode: 0766
+  with_items:
+    - { path: "{{ apache_log_dir }}/access_log" }
+    - { path: "{{ apache_log_dir }}/error_log" }
+
+- name: change apache install property
+  file:
+    path: "{{ install_home_dir }}"
+    owner: "{{ apache_user }}"
+    group: "{{ apache_group }}"
+    recurse: yes
+
+- name: reload apache service
+  shell: "systemctl daemon-reload"
+  when: ansible_os_family == "RedHat" and ansible_distribution_major_version | int == 7
+
+- name: start apache service
+  service:
+    name: httpd
+    state: started
+    enabled: yes

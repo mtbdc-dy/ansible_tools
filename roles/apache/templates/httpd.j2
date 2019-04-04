@@ -1,0 +1,112 @@
+#! /bin/bash
+#
+# network Bring up/down networking
+#
+# chkconfig: 2345 10 90
+# description: Activates/Deactivates all network interfaces configured to \
+# start at boot time.
+#
+### BEGIN INIT INFO
+# Provides: $network
+# Should-Start: iptables ip6tables NetworkManager-wait-online NetworkManager $network-pre
+# Short-Description: Bring up/down networking
+# Description: Bring up/down networking
+### END INIT INFO
+
+# Source function library.
+if [ -f /etc/rc.d/init.d/functions ]
+then
+    . /etc/rc.d/init.d/functions
+fi
+
+if [ -f /etc/sysconfig/httpd ]
+then
+    . /etc/sysconfig/httpd
+fi
+
+HTTPD_LANG=${HTTPD_LANG-"C"}
+
+INITLOG_ARGS=""
+
+apachectl={{ apache_install_dir }}/bin/apachectl
+httpd=${HTTPD-{{ apache_install_dir }}/bin/httpd}
+prog=httpd
+pidfile=${PIDFILE-{{ apache_log_dir }}/logs/httpd.pid}
+lockfile=${LOCKFILE-/var/lock/subsys/httpd}
+RETVAL=0
+STOP_TIMEOUT=${STOP_TIMEOUT-10}
+
+start()
+{
+    echo -n $"Starting $prog: "
+    ${apachectl} -k start
+    RETVAL=$?
+    echo
+    [ $RETVAL = 0 ] && touch ${lockfile}
+
+    return $RETVAL
+}
+
+stop()
+{
+    local pid=$(ps -fu root | grep -v "grep" | grep "${httpd}" | awk '{print $2}')
+    if [ "${pid}" != "" ] && [ ${pid} -gt 0 ]
+    then
+        ${apachectl} -k stop
+        RETVAL=$?
+
+        if [ ${RETVAL} = 0 ]
+        then
+            rm -rf ${lockfile}
+            echo -n "Stopped $prog"
+        else
+             echo -n "Stopped $prog failed."
+        fi
+    else
+        echo -n "$prog is not running."
+    fi
+
+    echo
+}
+
+function status()
+{
+    local pid=$(ps -fu root | grep -v "grep" | grep "${httpd}" | awk '{print $2}')
+    RETVAL=$?
+    if [ "${pid}" != "" ] && [ ${pid} -gt 0 ]
+    then
+        echo -n "$prog is running(PID ${pid})"
+    else
+        echo -e "$prog is not running."
+    fi
+
+    echo
+
+    return $RETVAL
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status
+        RETVAL=$?
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    graceful|help|configtest|fullstatus)
+        $apachectl $@
+        RETVAL=$?
+        ;;
+    *)
+        echo $"Usage: $prog {start|stop|restart||status|fullstatus|graceful|help|configtest}"
+        RETVAL=2
+esac
+
+exit $RETVAL

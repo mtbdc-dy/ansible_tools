@@ -1,0 +1,36 @@
+---
+# defaults file for redis-cluster
+
+ruby_install_dir: /usr/local/ruby
+ruby_source_version: ruby-2.6.0.tar.gz
+rubygem_source_version: rubygems-3.0.2.tar.gz
+ruby_download_url: "https://cache.ruby-lang.org/pub/ruby/2.6/ruby-2.6.0.tar.gz"
+rubygem_download_url: "https://rubygems.org/rubygems/rubygems-3.0.2.tgz"
+
+# redis 节点配置
+redis_user: redis     # 以普通用户启动集群
+redis_group: redis
+redis_source_version: redis-4.0.12.tar.gz
+redis_bin_dir: /usr/local/redis
+
+# 为调优 redis Linux 服务，建议设置 ntp server 服务器，用以校准时间
+ntp_server: ""
+
+# 集群数据存放目录
+redis_cluster_dir: "/usr/local/redis-cluster"
+# cluster 节点
+cluster:
+  master:
+    - ip: 10.1.163.169
+      port: 7000
+    - ip: 10.1.163.170
+      port: 7004
+    - ip: 10.1.163.171
+      port: 7005
+  slave:
+    - ip: 10.1.163.169
+      port: 7001
+    - ip: 10.1.163.170
+      port: 7002
+    - ip: 10.1.163.171
+      port: 7003

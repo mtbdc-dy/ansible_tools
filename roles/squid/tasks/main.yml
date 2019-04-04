@@ -1,0 +1,10 @@
+---
+# tasks file for squid
+
+- include: install_squid_by_package.yaml
+  when: install_type == "packagemanager"
+
+- include: install_squid_by_source.yaml
+  when: install_type == "sourceCompile"
+
+- include: start_squid.yaml

@@ -1,0 +1,49 @@
+- name: configure mysql
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0644
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+  with_items:
+    - { src: "my.cnf.j2", dest: "/etc/my.cnf", owner: "root", group: "root" }
+    - { src: "my.cnf.j2", dest: "{{ mysql_conf_dir }}/my.cnf", owner: "{{ mysql_user }}", group: "{{ mysql_group }}" }
+    # Set MySQL environment variables
+    - { src: "mysql_environment.sh.j2", dest: "/etc/profile.d/mysql.sh", owner: "root", group: "root" }
+  
+- name: touch mysql log
+  file:
+    path: "{{ item.path }}"
+    state: touch
+    mode: "u=rw,g=rw,o=r"
+  with_items:
+    - { path: "{{ mysql_logs_dir }}/mysql-error.log" }
+    - { path: "{{ mysql_logs_dir }}/mysql-slow.log" }
+
+- name: change mysql directory property
+  file:
+    path: "{{ item.path }}"
+    recurse: yes
+    owner: "{{ mysql_user }}"
+    group: "{{ mysql_group }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - { path: "{{ mysql_install_dir }}", mode: "0755" }
+
+- name: delete error data directory
+  file:
+    path: "{{ mysql_data_dir }}"
+    state: absent
+
+# 初始化 mysql, 创建 data 数据目录
+- name: initial mysql data directory
+  command: 
+    "{{ mysql_install_dir }}/bin/mysqld --initialize --user={{ mysql_user }} --basedir={{ mysql_install_dir }} --datadir={{ mysql_data_dir }}"
+  register: initial_result
+
+- name: set mysql self boot on {{ ansible_distribution }}{{ ansible_distribution_major_version }}
+  copy:
+    src: "{{ mysql_install_dir }}/support-files/mysql.server"
+    dest: "/etc/init.d/mysqld"
+    mode: 0755
+    remote_src: yes

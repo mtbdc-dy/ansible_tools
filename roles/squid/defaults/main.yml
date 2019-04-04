@@ -1,0 +1,20 @@
+---
+# defaults file for squid
+
+# squid 的安装方式 packagemanager(yum|dnf) | sourceCompile
+install_type: sourceCompile
+
+squid_port: 3128
+squid_user: squid
+squid_group: squid
+
+squid_install_dir: "/usr/local/squid"
+squid_config_dir: "{{ squid_install_dir }}/etc"
+squid_cache_dir: "{{ squid_install_dir }}/var/cache/squid"
+squid_log_dir: "{{ squid_install_dir }}/var/logs"
+squid_run_dir: "{{ squid_install_dir }}/var/run"
+squid_pid: "{{ squid_run_dir }}/squid.pid"
+
+squid_version: squid-3.5.28.tar.gz
+# squid 官网下载 URL
+squid_download_url: http://www.squid-cache.org/Versions/v3/3.5/{{ squid_version }}

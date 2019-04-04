@@ -1,0 +1,41 @@
+---
+#
+# Description:  
+#       mysql5.7 之后, 当初始化 data 目录成功后, 可以在 logs/mysql-error.log 文件中生成 root 的临时密码
+#
+
+# 使用正则表达式匹配获取该原始密码
+- name: get original root password
+  shell: "grep -wr --color \"A\ temporary\ password\ is\ generated\ for\ root@localhost\" {{ mysql_logs_dir }}/mysql-error.log | awk '{print $11}'"
+  register: origin_password
+
+# 输出 mysql 初始化后的原始密码
+- name: MySQL original root password
+  debug:
+    msg: "MySQL original root password: {{ origin_password.stdout }}"
+  when: origin_password.stdout != ""
+
+- name: reset root password
+  mysql_user:
+    name: root
+    host: "{{ item }}"
+    password: "{{ origin_password.stdout }}"
+    login_user: root
+    update_password: always
+  with_items:
+    - "127.0.0.1"
+    - "::1"
+    - "localhost"
+  when: origin_password.stdout != ""
+
+- name: delete test database
+  mysql_db:
+    name: "{{ item }}"
+    state: absent
+    login_host: "localhost"
+    login_password: "{{ setup_root_password }}"
+    login_user: root
+    login_port: "{{ mysql_port }}"
+  with_items:
+    - "test"
+  when: origin_password.stdout != ""

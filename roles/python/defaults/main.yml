@@ -1,0 +1,11 @@
+---
+# defaults file for python
+
+python_version: "Python-3.7.2.tgz"
+python2: "https://www.python.org/ftp/python/2.7.5/Python-2.7.5.tgz"
+python3: "https://www.python.org/ftp/python/3.7.2/Python-3.7.2.tgz"
+
+
+# 当前主流的 python大版本分为 python2 和 python3
+# 为避免安装相同的路径, 建议创建的安装目录名称案例:  /usr/local/python2.7.5
+python_install_dir: "/usr/local/python3.7.2"

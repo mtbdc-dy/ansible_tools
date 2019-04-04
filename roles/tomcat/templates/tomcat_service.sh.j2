@@ -1,0 +1,194 @@
+#!/bin/bash -
+# chkconfig: 345 80 20 
+#===============================================================================
+#
+#          FILE: tomcat_service.sh
+#
+#         USAGE: ./tomcat_service.sh start|stop|status|restart
+#
+#   DESCRIPTION: 
+#           tomcat startup script for the Tomcat server 
+#           start the tomcat deamon 
+# 
+#       OPTIONS: ---
+#  REQUIREMENTS: ---
+#          BUGS: ---
+#         NOTES: ---
+#        AUTHOR: Stalker-lee (), 1318895540@qq.com
+#  ORGANIZATION: 
+#       CREATED: 2019/01/06 17时42分38秒
+#      REVISION:  ---
+#===============================================================================
+
+set -o nounset                                  # Treat unset variables as an error
+
+# 设置 Catalina.sh 的强制停止的时间期限值，默认为 30's
+SHUTDOWN_WAIT=30
+# tomcat 应用运行的基础环境变量的设置
+export APP_USER={{ tomcat_user }}
+# jdk 的家目录 环境变量
+export JAVA_HOME=${JAVA_HOME:-{{ jdk_install_dir }}}
+export PATH=${JAVA_HOME}/bin:${PATH} 
+export CLASSPATH=.:${JAVA_HOME}/lib/dt.jar:${JAVA_HOME}/lib/tools.jar 
+# tomcat 的 安装家目录
+export CATALINA_HOME=${CATALINA_HOME:-{{ tomcat_unarchive_dir }}}
+# tomcat 的 pid 运行文件路径
+export CATALINA_PID=${CATALINA_HOME}/temp/tomcat.pid
+# 进行用户切换的 命令
+SU="su"
+
+# 判断 环境变量是否设置有效
+if [ ! -d ${JAVA_HOME} ]
+then
+    echo -e "Please setup jdk directory"
+    exit 1
+fi
+
+if [ ! -d ${CATALINA_HOME} ]
+then
+    echo -e "Please setup tomcat home directory"
+    exit 1
+fi
+
+# 判断 tomcat 应用的用户 是否存在
+USER_CONTENT=$(cat /etc/passwd | grep "${APP_USER}")
+if [ "${USER_CONTENT}" == "" ]
+then
+    echo -e "You should useradd ${APP_USER}, You can run follow commands:"
+    echo -e "useradd ${APP_USER}"
+    echo -e "passwd ${APP_USER}"
+    exit 1
+fi
+
+findpid() 
+{
+    pid=""
+
+    # 查找 tomcat 的运行进程号
+    #pid=$(pgrep -U $APP_USER -f "^$JAVA_HOME/bin/java.*cpatalina.base=$CATALINA_HOME")
+    pid=$(ps -fu ${APP_USER} | grep "Dcatalina.home=${CATALINA_HOME}" | awk {'print $2'})
+   
+    # 对 pid 的输出进行 合理值判断
+    if ! [ "${pid}" = "" ] && ! [ "${pid}" -gt 0 ]
+    then
+        echo "Unable to determine if Tomcat is running"
+        exit 1 
+    fi
+}
+
+# 判断 tomcat 的运行状态
+isrunning() 
+{
+    findpid
+    if [ "${pid}" = "" ]
+    then
+        return 1
+    elif [ "${pid}" -gt 0 ]
+    then
+        return 0
+    fi 
+}
+# 启动 tomcat
+start() 
+{
+    isrunning
+    if [ "$?" = 0 ]
+    then
+        echo "Tomcat is already running"
+        return 0
+    fi
+    
+    # 进入 tomcat 的家目录 
+    cd ${CATALINA_HOME}
+    # 将 前面运行 tomcat 生成的 pid 文件删除，避免再次启动出错
+    test -f ${CATALINA_PID} && rm -f ${CATALINA_PID}
+    ${SU} ${APP_USER} -c "umask 0002; ${CATALINA_HOME}/bin/catalina.sh start" > /dev/null
+}
+
+# 停止 tomcat
+stop() 
+{
+    isrunning
+    if [ "$?" = 1 ]
+    then
+        echo "Tomcat is already stopped"
+        rm -f ${CATALINA_PID} 
+        return 0
+    fi
+
+    echo -n "Waiting for Tomcat to exit (${SHUTDOWN_WAIT} sec.)"
+    count=0
+    
+    until [ "${pid}" = "" ] || [ ${count} -gt ${SHUTDOWN_WAIT} ]
+    do
+        ${SU} ${APP_USER} -c "${CATALINA_HOME}/bin/catalina.sh stop -force" > /dev/null
+
+        findpid
+        echo -n "."
+        sleep 3
+        count=$((count+3))
+    done
+
+    echo ""
+    if [ "${count}" -gt "${SHUTDOWN_WAIT}" ]
+    then
+        echo "Forcing Tomcat to stop"
+        /bin/kill -9 ${pid} && sleep 5
+    fi
+    
+    # 判断 tomcat 的运行状态，并将状态返回
+    ! isrunning 
+}
+
+# 主体应用程序的运行入口
+case "$1" in
+    start)
+        start
+        RETVAL=$?
+        if [ "${RETVAL}" = 0 ]
+        then
+            echo "Started Tomcat"
+        else
+            echo "Not able to start Tomcat"
+        fi 
+    ;;
+    stop) 
+        stop
+        RETVAL=$?
+        if [ "${RETVAL}" = 0 ]
+        then
+            echo "Stopped Tomcat"
+        else
+            echo "Not able to stop Tomcat"
+        fi
+    ;;
+    restart)
+        stop
+        sleep 5
+        start
+        RETVAL=$?
+        if [ "${RETVAL}" = 0 ]
+        then
+            echo "Restarted Tomcat"
+        else
+            echo "Not able to restart Tomcat"
+        fi 
+    ;;
+    status)
+        isrunning
+        RETVAL=$?
+        if [ "${RETVAL}" = 0 ]
+        then
+            echo "Tomcat (pid $pid) is running..."
+        else
+            echo "Tomcat is stopped"
+            RETVAL=3
+        fi 
+    ;;
+    *)
+        RETVAL=0
+        echo "Usage: $0 {start|stop|restart|status}"
+    ;; 
+esac
+
+exit ${RETVAL}

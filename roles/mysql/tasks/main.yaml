@@ -1,0 +1,11 @@
+- include: install_by_package.yaml
+  when: install_type == "packageManager"
+
+- include: install_by_source.yaml
+  when: install_type == "compileSource"
+
+- include: configure_mysql.yaml
+
+- include: start_mysql.yaml
+
+- include: initial_mysql.yaml

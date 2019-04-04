@@ -1,0 +1,38 @@
+---
+#
+# Description: 配置安装 vsftpd 的虚拟用户登陆
+# 
+# 问题说明: 经过测试，在编译安装时，连接登陆会提示 530 的错误，但是在 相同配置下的 yum 安装，则连接正常， 暂还未找到原因
+#
+
+- name: uninstall existing vsftpd
+  yum:
+    name:
+      - vsftpd
+    state: absent
+  when: (ansible_distribution == "CentOS" or ansible_os_family == "RedHat") and is_uninstalled == "yes"
+
+- name: upload {{ vsftpd_version }}
+  copy:
+    src: "{{ item.name }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - { name: "{{ vsftpd_version }}", dest: "{{ remote_temp_dir }}/{{ vsftpd_version }}", mode: "0644" }
+    - { name: "compile_vsftp.sh", dest: "{{ remote_temp_dir }}/compile_vsftp.sh", mode: "0755" }
+
+- name: compile vsftpd source code
+  command:
+    "{{ remote_temp_dir }}/compile_vsftp.sh"
+  register: compile_result
+  environment:
+    VSFTPD_SOURCE: "{{ remote_temp_dir }}/{{ vsftpd_version }}"
+  when: ansible_env.SHELL == "/bin/bash"
+
+- name: delete vsftp files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ remote_temp_dir }}/{{ vsftpd_version }}"
+    - "{{ remote_temp_dir }}/compile_vsftp.sh"

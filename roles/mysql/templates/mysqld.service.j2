@@ -1,0 +1,23 @@
+[Unit]
+Description=MySQL Server
+Documentation=man:mysqld(8)
+Documentation=http://dev.mysql.com/doc/refman/en/using-systemd.html
+After=network.target
+After=syslog.target
+
+[Service]
+Type=forking
+#Environment="CONFFILE={{ mysql_conf_dir }}/my.cnf"
+User={{ mysql_user }}
+Group={{ mysql_group }}
+ExecStart={{ mysql_install_dir }}/bin/mysqld --defaults-file={{ mysql_conf_dir }}/my.cnf
+ExecStop=/bin/kill -WINCH ${MAINPID}
+KillSignal=SIGCONT
+LimitNOFILE = 5000
+Restart=on-failure
+RestartPreventExitStatus=1
+PrivateTmp=true
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

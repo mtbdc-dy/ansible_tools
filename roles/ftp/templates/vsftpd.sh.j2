@@ -1,0 +1,158 @@
+#!/bin/bash
+#
+### BEGIN INIT INFO
+# Provides: vsftpd
+# Required-Start: $local_fs $network $named $remote_fs $syslog
+# Required-Stop: $local_fs $network $named $remote_fs $syslog
+# Short-Description: Very Secure Ftp Daemon
+# Description: vsftpd is a Very Secure FTP daemon. It was written completely from
+#              scratch
+### END INIT INFO
+
+# vsftpd      This shell script takes care of starting and stopping
+#             standalone vsftpd.
+#
+# chkconfig: - 60 50
+# description: Vsftpd is a ftp daemon, which is the program \
+#              that answers incoming ftp service requests.
+# processname: vsftpd
+# config: {{ vsftpd_conf_dir }}/vsftpd.conf
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+# Source networking configuration.
+. /etc/sysconfig/network
+
+RETVAL=0
+prog="vsftpd"
+
+# 源码编译安装时，安装路径: /usr/local/sbin/vsftpd
+# 在 yum 安装时，安装路径: /usr/sbin/vsftpd
+
+if [ -x /usr/local/sbin/vsftpd ]
+then
+    vsftpd_execute=/usr/local/sbin/vsftpd
+elif [ -x /usr/sbin/vsftpd ]
+then
+    vsftpd_execute=/usr/sbin/vsftpd
+else
+    echo -n $"Starting ${prog} failed!"
+    exit 1
+fi
+
+start()
+{
+    # Check that networking is up.
+    [ ${NETWORKING} = "no" ] && exit 1
+
+    [ -x ${vsftpd_execute} ] || exit 1
+    
+    if [ -d /etc/vsftpd ]
+    then
+        CONFS=$(ls {{ vsftpd_conf_dir }}/*.conf 2> /dev/null)
+        [ -z "$CONFS" ] && exit 6
+        PROC_FAILED=0
+        for i in $CONFS
+        do
+            site=`basename $i .conf`
+            echo -n $"Starting $prog for $site: "
+            
+            # 经测试，在使用系统自带 daemon 启动 vsftpd 会卡死
+            #daemon ${vsftpd_execute} $i
+            ${vsftpd_execute} ${i} &
+            RETVAL=$?
+            echo
+            if [ $RETVAL -eq 0 ] && [ ! -f /var/lock/subsys/$prog ]
+            then
+                touch /var/lock/subsys/$prog
+            elif [ $RETVAL -ne 0 ]
+            then
+                ps -FC vsftpd | grep "$i" > /dev/null
+                RETVAL=$?
+                if [ $PROC_FAILED -eq 0 ] && [ $RETVAL -ne 0 ]
+                then
+                    PROC_FAILED=1
+                fi
+            fi
+        done
+
+        if [ $RETVAL -eq 0 ] && [ $PROC_FAILED -ne 0 ]
+        then
+            RETVAL=1
+        fi
+    else
+        RETVAL=1
+    fi
+
+    return $RETVAL
+}
+
+kill_rest_children()
+{
+    # all vsftpd processes their parent is init
+    for chld in $(pgrep -P 1 '^vsftpd$')
+    do
+        if [ -n $chld ]
+        then
+            puid=$(ps -p $chld -o uid= | sed s/^\ *//)
+            # process UID isn't root - children to kill
+            if [ "$puid" != "0" ]
+            then
+                pgrp=`ps -p $chld -o pgrp= | sed s/^\ *//`
+                if [ "$pgrp" = "$chld" ]
+                then
+                    # chld is group to kill
+                    kill -9 -$chld
+                else
+                    # chld to kill
+                    kill -9 $chld
+                fi
+            fi
+        fi
+    done
+}
+
+stop()
+{
+    # Stop daemons.
+    echo -n $"Shutting down $prog: "
+    killproc $prog
+    RETVAL=$?
+    kill_rest_children
+    echo
+    [ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/$prog
+    return $RETVAL
+}
+
+# See how we were called.
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart|reload)
+        stop
+        start
+        RETVAL=$?
+        ;;
+    condrestart|try-restart|force-reload)
+        if [ -f /var/lock/subsys/$prog ]
+        then
+            stop
+            start
+            RETVAL=$?
+        fi
+        ;;
+    status)
+        status $prog
+        RETVAL=$?
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|restart|try-restart|force-reload|status}"
+        exit 1
+esac
+
+exit $RETVAL

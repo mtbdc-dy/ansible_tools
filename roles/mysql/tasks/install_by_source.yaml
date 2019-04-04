@@ -1,0 +1,91 @@
+- name: determine whether {{ mysql_install_dir }} exists
+  stat:
+    path: "{{ mysql_install_dir }}"
+  register: mysql_result
+
+# 加入目标主机已经安装了，则报错，并退出该 剧本
+- name: output information
+  fail:
+    msg: "The target host has been installed and withdrawn from the playbook."
+  when: mysql_result.stat.exists
+
+- name: upload mysql source code
+  copy:
+    src: "{{ item.name }}"
+    dest: "{{ item.dest }}"
+    mode: 0755
+  with_items:
+    - { name: "{{ mysql_source_code }}", dest: "{{ remote_temp_dir }}/{{ mysql_source_code }}" }
+    - { name: "{{ boost_source_code }}", dest: "{{ remote_temp_dir }}/{{ boost_source_code }}" }
+    - { name: "compile_mysql.sh", dest: "{{ remote_temp_dir }}/compile_mysql.sh" }
+    
+- name: create mysql group
+  group:
+    name: "{{ mysql_group }}"
+    state: present
+
+- name: create mysql user
+  user:
+    name: "{{ mysql_user }}"
+    comment: "mysql database user"
+    create_home: no
+    shell: /usr/bin/false
+    state: present
+    group: "{{ mysql_group }}"
+    system: yes
+
+- name: create mysql installation dir
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    recurse: yes
+    owner: "{{ mysql_user }}"
+    group: "{{ mysql_group }}"
+  with_items:
+    - { path: "{{ mysql_install_dir }}" }
+    - { path: "{{ mysql_conf_dir }}" }
+    - { path: "{{ mysql_logs_dir }}" }
+    - { path: "{{ mysql_running_info }}" }
+
+# yum 安装 mysql 的依赖环境,如果为局域网，可以在 inventory/group_vars/all.yaml 中 配置 http_proxy 和 https_proxy (如果已经有 代理服务器)
+# 同时 roles/mysql/defaults/main.yaml 中设置 dependencies_common 为 true
+- name: yum install ncurses-devel perl
+  yum:
+    name:
+      - ncurses-devel
+      - perl
+      - cmake
+      - numactl
+      - libaio 
+      - libaio-devel
+    state: latest
+    update_cache: no
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+# 通过注入 环境变量 的方式向该脚本传递参数
+- name: install mysql by compiling source
+  command:
+    "{{ remote_temp_dir }}/compile_mysql.sh"
+  register: mysql_result
+  environment:
+    TEMP_STORAGE_DIR: "{{ remote_temp_dir }}"
+    MYSQL_HOME_DIR: "{{ mysql_install_dir }}"
+    MYSQL_DATA_DIR: "{{ mysql_data_dir }}"
+    MYSQL_CONF_DIR: "{{ mysql_conf_dir }}"
+    MYSQL_RUNNING_DIR: "{{ mysql_running_info }}"
+    MYSQL_LOGS_DIR: "{{ mysql_logs_dir }}"
+    MYSQL_SOURCE_CODE: "{{ remote_temp_dir }}/{{ mysql_source_code }}"
+    BOOST_SOURCE_CODE: "{{ remote_temp_dir }}/{{ boost_source_code }}"
+    MYSQL_USER: "{{ mysql_user }}"
+    MYSQL_GROUP: "{{ mysql_group }}"
+    MYSQL_PORT: "{{ mysql_port }}"
+  when: ansible_env.SHELL == "/bin/bash"
+
+- name: delete mysql source files
+  file:
+    path: "{{ remote_temp_dir }}/{{ item }}" 
+    state: absent
+  with_items:
+    - "{{ remote_temp_dir }}/{{ mysql_source_code }}"
+    - "{{ remote_temp_dir }}/{{ boost_source_code }}"
+    - "{{ remote_temp_dir }}/compile_mysql.sh"

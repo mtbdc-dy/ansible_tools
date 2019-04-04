@@ -1,0 +1,42 @@
+---
+#
+# Description:
+#
+
+# 采用源码编译安装后的 nginx 的文件分布, 作为示例
+#nginx path prefix: "/usr/local/nginx"
+#nginx binary file: "/usr/local/nginx/sbin/nginx"
+#nginx modules path: "/usr/local/nginx/modules"
+#nginx configuration prefix: "/usr/local/nginx/conf"
+#nginx configuration file: "/usr/local/nginx/conf/nginx.conf"
+#nginx pid file: "/usr/local/nginx/logs/nginx.pid"
+#nginx error log file: "/usr/local/nginx/logs/error.log"
+#nginx http access log file: "/usr/local/nginx/logs/access.log"
+#nginx http client request body temporary files: "client_body_temp"
+#nginx http proxy temporary files: "proxy_temp"
+#nginx http fastcgi temporary files: "fastcgi_temp"
+#nginx http uwsgi temporary files: "uwsgi_temp"
+#nginx http scgi temporary files: "scgi_temp"
+
+# 是否依赖 角色 common
+dependency_common: false
+
+# 源码编译安装 nginx
+install_type: compileSource
+
+nginx_install_dir: "/usr/local/nginx"
+nginx_html_doc_dir: "{{ nginx_install_dir }}"
+nginx_user: nginx
+nginx_group: nginx
+
+nginx_port: 81
+server_name: localhost
+
+# 解析 PHP 程序的启动端口和 IP 地址
+fastcgi_pass_ip: 127.0.0.1
+fastcgi_pass_port: 9000
+
+nginx_source_code: nginx-1.15.6.tar.gz
+pcre_source_code: pcre-8.40.tar.gz
+openssl_source_code: openssl-1.0.2q.tar.gz
+zlib_source_code: zlib-1.2.11.tar.gz

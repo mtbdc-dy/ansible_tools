@@ -1,0 +1,83 @@
+# 判断安装 jdk
+- include: install_jdk.yaml
+
+- name: upload {{ elasticsearch_source_version }}
+  copy: 
+    src: "{{ es_version }}"
+    dest: "{{ remote_temp_dir }}/{{ es_version }}"
+    mode: "0755"
+    force: yes
+
+- name: unarchive {{ es_version }}
+  unarchive:
+    src: "{{ remote_temp_dir }}/{{ es_version }}"
+    dest: "{{ remote_temp_dir }}"
+    remote_src: yes
+  
+- name: copy elasticsearch files to {{ elasticsearch_install_dir }}
+  shell: "mv -f {{ remote_temp_dir }}/{{ es_version | regex_replace('.tar.gz', '') }}/* {{ es_install_dir }}"
+
+- name: create {{ es_group }} group
+  group:
+    name: "{{ es_group }}"
+    state: present
+
+- name: create {{ es_user }} user
+  user:
+    name: "{{ es_user }}"
+    comment: "elk distributed user"
+    create_home: no
+    shell: /bin/false
+    state: present
+    group: "{{ es_group }}"
+    system: yes
+
+- name: create elasticsearch directory
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: 0755
+    recurse: yes
+  with_items:
+    - "{{ es_install_dir }}"
+    - "{{ es_data_dir }}"
+    - "{{ path_logs }}"
+    - "{{ es_config }}"
+  
+- name: configure elasticsearch.yml
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ es_config }}/{{ item.dest }}"
+    mode: 0644
+  with_items:
+    - "elasticsearch.yml.j2"
+    - "jvm.options.j2"
+    - "log4j2.properties.j2"
+    - "role_mapping.yml.j2"
+    - "roles.yml.j2"
+    - "users_roles.j2"
+    - "users.j2"
+
+- name: set elasticsearch self boot
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    owner: root
+    group: root
+  notify:
+    - modify elasticsearch installation properties
+    - reload elasticsearch service
+    - start elasticsearch
+  with_items:
+    - { src: "elasticsearch.sh.j2", dest: "/etc/init.d/elasticsearch", mode: "0755", os_distribution: "CentOS", os_version: "6" }
+    - { src: "elasticsearch.service.j2", dest: "/usr/lib/systemd/system/elasticsearch.service", mode: "0644", os_distribution: "CentOS", os_version: "7" }
+  when: ansible_distribution == item.os_distribution and ansible_distribution_major_version == item.os_version
+
+- name: delete {{ es_version }}
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ remote_temp_dir }}/{{ es_version }}"
+    - "{{ remote_temp_dir }}/{{ es_version | regex_replace('.tar.gz', '') }}"

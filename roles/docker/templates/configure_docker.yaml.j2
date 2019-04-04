@@ -1,0 +1,26 @@
+version: 0.1
+log:
+  fields:
+    service: registry
+storage:
+  cache:
+    blobdescriptor: inmemory
+  filesystem:
+    rootdirectory: {{ docker_store_path }}
+    maxthreads: 100
+  delete:
+    enabled: true
+http:
+  addr: 0.0.0.0:{{ docker_port }}
+  host: {{ host_url }}
+  secret: {{ secret }}
+  headers:
+    X-Content-Type-Options: [nosniff]
+  tls:
+    certificate: {{ tls_certificate }}
+    key: {{ tls_key }}
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3

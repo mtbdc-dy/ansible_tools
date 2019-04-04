@@ -1,0 +1,112 @@
+---
+# defaults file for zabbix_server
+
+# zabbix 依赖 LAMP/LNMP 基础环境
+dependencies_common: false
+dependencies_apache: false
+dependencies_nginx: false
+dependencies_mysql: false
+dependencies_php: false
+
+# 依赖 mysql 和 apr-iconv
+with_mysql: "/usr/local/mysql/bin/mysql_config"
+with_iconv: "/usr/local/apache_web/apr-iconv"
+
+# 如下为数据库的配置
+dbtype: mysql     # 默认为 mysql
+database_name: zabbix
+db_username: zabbix
+db_password: zabbix
+db_root_password: "DKcJ,e#.d74U"
+db_connect_ip: localhost
+db_connect_port: 3306
+# 经测试发现，zabbix 只能发现 /lib/mysql/mysql.sock 文件
+# 当源码安装 mysql 时，其指定的 socket 文件可使用 ln -s 创建一个软链接
+db_connect_socket: "/lib/mysql/mysql.sock"
+
+# web 配置
+web_type: httpd        # 支持 httpd 和 nginx
+html_content_dir: "/usr/local/apache_web/httpd/htdocs"    # 请指定不同的 web 服务器的 html 存放目录
+html_content_owner: apache          # 当复制 zabbix php 前端文件时，指定其属主和属组,不然会出现权限问题
+html_content_group: apache
+
+# 安装方式: packageManager(yum|dnf) | compileSource
+install_type: compileSource
+zabbix_user: zabbix
+zabbix_group: zabbix
+
+zabbix_server_port: 30051
+# zabbix 分为 主动/被动 模式(active or passiv)
+mode_type: active
+# 当为被动模式时，server 端主动的去轮询 agentd 端获取数据，这时需要指定 agentd 端口
+zabbix_agentd: 30050
+
+zabbix_install_dir: "/usr/local/zabbix"
+zabbix_logs_dir: "{{ zabbix_install_dir }}/logs"
+zabbix_conf_dir: "{{ zabbix_install_dir }}/etc"
+# 扩展配置目录: 
+zabbix_external_agentd_conf: "{{ zabbix_conf_dir }}/zabbix_agentd.conf.d"
+zabbix_external_proxy_conf: "{{ zabbix_conf_dir }}/zabbix_proxy.conf.d"
+zabbix_external_server_conf: "{{ zabbix_conf_dir }}/zabbix_server.conf.d"
+
+# 自定义处理脚本存放目录
+zabbix_scripts_dir: "{{ zabbix_install_dir }}/scripts"
+# 脚本处理结果存放目录,用于自定义监控项的结果获取
+statistical_result_dir: "{{ zabbix_install_dir }}/statistical_data"
+
+zabbix_source_code: zabbix-3.4.15.tar.gz
+
+# 目前官网可选: 
+# zabbix-release-4.0-1.el6.noarch.rpm 
+# zabbix-release-3.0-1.el7.noarch.rpm
+# zabbix-release-2.2-1.el6.noarch.rpm
+
+zabbix_version: zabbix-release-3.0-1.el{{ ansible_distribution_major_version }}.noarch.rpm
+# 基于 CentOS/RedHat 的官网 repository url
+zabbix_repository_url: https://repo.zabbix.com/zabbix/3.0/rhel/{{ ansible_distribution_major_version }}/{{ ansible_architecture }}/{{ zabbix_version}}
+
+# https://repo.zabbix.com/zabbix/3.0/rhel/7/x86_64/zabbix-release-3.0-1.el7.noarch.rpm
+# https://repo.zabbix.com/zabbix/3.0/rhel/6/x86_64/zabbix-release-3.0-1.el6.noarch.rpm
+
+# 是否启用 ca 认证
+is_certificate: false
+# ssl 存放目录
+certificate_dir: "{{ zabbix_conf_dir }}/ssl"
+
+# 是否启用 agentd ---> proxy ---> server 结构
+is_proxy: false
+# 0 - proxy in the active mode
+#	1 - proxy in the passive mode
+ProxyMode: 0
+
+# zabbix_server.conf 配置项优化
+# 对于 Linux 操作系统的服务配置原则: 不安装资源竞争型的服务(尽量安装单一服务)、为物理总内存的 80% 等等
+StartPollers: 200
+StartPreprocessors: 3
+StartPollersUnreachable: 100
+StartTrappers: 200
+StartPingers: 100
+StartDiscoverers: 100
+StartTimers: 50
+CacheSize: 2G
+CacheUpdateFrequency: 60
+StartDBSyncers: 100
+HistoryCacheSize: 1G
+HistoryIndexCacheSize: 1G
+TrendCacheSize: 2G
+ValueCacheSize: 2G
+Timeout: 30
+TrapperTimeout: 300
+UnreachablePeriod: 45
+UnavailableDelay: 60
+UnreachableDelay: 15
+LogSlowQueries: 3000
+StartProxyPollers: 50
+ProxyConfigFrequency: 3600
+ProxyDataFrequency: 120
+
+# 监控 Java
+is_monitor_java: false
+JavaGateway: 127.0.0.1
+JavaGatewayPort: 30052
+StartJavaPollers: 50

@@ -1,0 +1,33 @@
+---
+# tasks file for redis-cluster
+
+# 判断 ruby rubygem 是否已经安装
+- name: determine whether {{ ruby_install_dir }} exists
+  stat:
+    path: "{{ ruby_install_dir }}"
+  register: ruby_result
+
+- include: install_ruby.yaml
+  when: not ruby_result.stat.exists
+
+- name: determine whether {{ redis_bin_dir }} exists
+  stat:
+    path: "{{ redis_bin_dir }}"
+  register: redis_result
+
+- include: install_redis.yaml
+  when: not redis_result.stat.exists
+
+- include: system_tunning.yaml
+
+- name: determine whether {{ redis_cluster_dir }} exists
+  stat:
+    path: "{{ redis_cluster_dir }}"
+  register: cluster_result
+
+# - include: "{{ item }}"
+#   with_items:
+#     - "configure_redis.yaml"
+#     - "start_redis.yaml"
+#     - "setup_redis_cluster.yaml"
+#   when: not cluster_result.stat.exists

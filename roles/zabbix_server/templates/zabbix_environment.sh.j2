@@ -1,0 +1,7 @@
+ZABBIX_HOME={{ zabbix_install_dir }}
+
+if [ -d ${ZABBIX_HOME} ]
+then
+    PATH=${ZABBIX_HOME}/bin:${ZABBIX_HOME}/sbin:${PATH}
+    export PATH
+fi

@@ -1,0 +1,14 @@
+- name: create {{ html_content_dir }}/zabbix
+  file:
+    path: "{{ html_content_dir }}/zabbix"
+    state: directory
+
+- name: copy php frontend to {{ html_content_dir }}/zabbix
+  shell: "mv -f {{ remote_temp_dir }}/{{ zabbix_source_code | regex_replace('.tar.gz', '') }}/frontends/php/* {{ html_content_dir }}/zabbix"
+
+- name: modifying owner and group of front-end files
+  file:
+    path: "{{ html_content_dir }}"
+    state: directory
+    owner: "{{ html_content_owner }}"
+    group: "{{ html_content_group }}"

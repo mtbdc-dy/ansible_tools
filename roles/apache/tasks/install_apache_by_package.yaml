@@ -1,0 +1,26 @@
+---
+#
+# Description:
+#     如果采用 包管理器安装，那么需要将按照 默认配置进行安装
+
+- name: install apache by packageManager
+  yum:
+    name:
+      - httpd
+      - apr
+      - apr-util
+      - httpd-tools
+      - mailcap
+    state: latest
+    disable_gpg_check: yes
+  when: ansible_os_family == "RedHat"
+
+- name: configure apache
+  template:
+    src: http.conf
+    dest: "/etc/httpd/http.conf"
+    mode: 0644
+    owner: root
+    group: root
+  notify:
+    - start apache service

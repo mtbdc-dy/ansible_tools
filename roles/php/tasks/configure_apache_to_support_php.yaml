@@ -1,0 +1,26 @@
+---
+#
+# Description: After compile php source code, add libphp5.so share lib to httpd.conf
+#              and restarted it
+
+- name: Determining httpd.conf whether a file exists
+  stat:
+    path: "{{ apache_conf_dir }}/httpd.conf"
+  register: conf_is_exist
+
+- name: Determining libphp5.so whether a file exists
+  stat:
+    path: "{{ apache_install_dir }}/modules/libphp5.so"
+  register: lib_is_exist
+
+- name: add modules/libphp5.so to httpd.conf
+  lineinfile:
+    dest: "{{ apache_conf_dir }}/httpd.conf"
+    regexp: "LoadModule php5_module        modules/libphp5.so"
+    line: "LoadModule php5_module        modules/libphp5.so"
+  when: conf_is_exist.stat.exists and lib_is_exist.stat.exists
+
+- name: restart httpd
+  service:
+    name: "httpd"
+    state: restarted

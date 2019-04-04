@@ -1,0 +1,131 @@
+# 对于编译源码，安装服务时的一些基础系统依赖服务(gcc gcc-c++ cmake make openssl openssl-devel 等)，这个可以依赖于 common role 来做
+- name: install dependencies for apache
+  yum:
+    name:
+      - expat
+      - expat-devel
+      - gcc
+      - gcc-c++
+      - make
+      - cmake
+      - automake
+      - autoconf
+      - pcre
+      - pcre-devel
+      - zlib
+      - zlib-devel
+      - openssl
+      - openssl-devel
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: upload apache source files
+  copy: 
+    src: "{{ item.name }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    force: yes
+  with_items:
+    - { name: "{{ apr_source_version }}", dest: "{{ remote_temp_dir }}/{{ apr_source_version }}",  mode: "0644" }
+    - { name: "{{ apr_iconv_source_version }}", dest: "{{ remote_temp_dir }}/{{ apr_iconv_source_version }}", mode: "0644" }
+    - { name: "{{ apr_util_source_version }}", dest: "{{ remote_temp_dir }}/{{ apr_util_source_version }}", mode: "0644" }
+    - { name: "{{ apache_source_version }}", dest: "{{ remote_temp_dir }}/{{ apache_source_version }}", mode: "0644" }
+    - { name: "compile_httpd.sh", dest: "{{ remote_temp_dir }}/compile_httpd.sh", mode: "0755" }
+
+- name: create apache group
+  group:
+    name: "{{ apache_group }}"
+    state: present
+
+- name: create apache user
+  user:
+    name: "{{ apache_user }}"
+    comment: "apache web user"
+    create_home: no
+    shell: /usr/bin/false
+    state: present
+    group: "{{ apache_group }}"
+    system: yes
+
+- name: create apache installation directory
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    recurse: yes
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+  with_items:
+    - { path: "{{ install_home_dir }}", owner: "{{ apache_user }}", group: "{{ apache_group }}" }
+    - { path: "{{ apache_install_dir }}", owner: "{{ apache_user }}", group: "{{ apache_group }}" }
+    - { path: "{{ apache_conf_dir }}", owner: "{{ apache_user }}", group: "{{ apache_group }}" }
+    - { path: "{{ apache_html_doc_dir }}", owner: "{{ apache_user }}", group: "{{ apache_group }}" }
+    - { path: "{{ apache_log_dir }}", owner: "{{ apache_user }}", group: "{{ apache_group }}" }
+    - { path: "{{ apr_install_dir }}", owner: "{{ apache_user }}", group: "{{ apache_group }}" }
+    - { path: "{{ apr_iconv_install_dir }}", owner: "{{ apache_user }}", group: "{{ apache_group }}" }
+    - { path: "{{ apr_util_install_dir }}", owner: "{{ apache_user }}", group: "{{ apache_group }}" }
+
+# 通过注入 环境变量 的方式 向脚本提供运行参数
+# 注意: compile_httpd.sh 脚本的验证环境变量步骤需要使用 shell 高级编程 的 变量间接引用
+- name: compile apache source code
+  command:
+    "{{ remote_temp_dir }}/compile_httpd.sh"
+  register: httpd_result
+  environment:
+    APR_SOURCE: "{{ apr_source_version }}"
+    APR_INSTALL_DIR: "{{ apr_install_dir }}"
+    APR_UTIL_SOURCE: "{{ apr_util_source_version }}"
+    APR_UTIL_INSTALL_DIR: "{{ apr_util_install_dir }}"
+    APR_ICONV_SOURCE: "{{ apr_iconv_source_version }}"
+    APR_ICONV_INSTALL_DIR: "{{ apr_iconv_install_dir }}"
+    APACHE_SOURCE: "{{ apache_source_version }}"
+    APACHE_INSTALL_DIR: "{{ apache_install_dir }}"
+    APACHE_USER: "{{ apache_user }}"
+    APACHE_GROUP: "{{ apache_group }}"
+    SOURCE_TEMP_DIR: "{{ remote_temp_dir }}"
+  when: ansible_env.SHELL == "/bin/bash"
+
+- name: configure apache httpd
+  template:
+    src: httpd.conf.j2
+    dest: "{{ apache_conf_dir }}/httpd.conf"
+    mode: 0644
+    owner: root
+    group: root
+  notify:
+    - create apache log
+    - change apache install property
+
+- name: setup apache boot self start
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    owner: root
+    group: root
+  notify:
+    - reload apache service
+    - start apache service
+  with_items:
+    - { src: "httpd.j2", dest: "/etc/init.d/httpd", mode: "0755", os_family: "RedHat", os_major_version: "6" }
+    - { src: "httpd.service.j2", dest: "/usr/lib/systemd/system/httpd.service", mode: "0644", os_family: "RedHat", os_major_version: "7" }
+  when: item.os_family == ansible_os_family and item.os_major_version == ansible_distribution_major_version
+
+# 设置 Apache 的可执行环境变量
+- name: set apache environment variable
+  template:
+    src: "set_apache_environment_variable.sh.j2"
+    dest: "/etc/profile.d/apache.sh"
+    mode: 0644
+    owner: root
+    group: root
+
+- name: delete apache source code
+  file: 
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ remote_temp_dir }}/{{ apr_source_version }}"
+    - "{{ remote_temp_dir }}/{{ apr_iconv_source_version }}"
+    - "{{ remote_temp_dir }}/{{ apr_util_source_version }}"
+    - "{{ remote_temp_dir }}/{{ apache_source_version }}"
+    - "{{ remote_temp_dir }}/compile_httpd.sh"

@@ -1,0 +1,35 @@
+---
+# tasks file for zabbix_server
+
+- include: install_by_source.yaml
+  when: install_type == "compileSource"
+
+- include: configure_zabbix.yaml
+
+# 上传 数据库表 和 前端文件
+- name: upload database backup files
+  copy:
+    src: "{{ zabbix_source_code }}"
+    dest: "{{ remote_temp_dir }}/{{ zabbix_source_code }}"
+
+- name: unarchive {{ zabbix_source_code }}
+  unarchive:
+    src: "{{ remote_temp_dir }}/{{ zabbix_source_code }}" 
+    dest: "{{ remote_temp_dir }}"
+    remote_src: yes
+
+- include: configure_mysql.yaml
+  when: dbtype == "mysql"
+
+- include: configure_frontend.yaml
+
+- name: delete database backup files and frontend files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ remote_temp_dir }}/{{ zabbix_source_code }}"
+    - "{{ remote_temp_dir }}/{{ zabbix_source_code | regex_replace('.tar.gz', '') }}"
+    - "{{ remote_temp_dir }}/zabbix_partition_tables.sql"
+
+- include: start_zabbix.yaml

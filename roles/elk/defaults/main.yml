@@ -1,0 +1,46 @@
+---
+# defaults file for elk
+
+elk_home_dir: "/usr/local/elk"
+
+###############################
+# elasticsearch 基础配置       #
+###############################
+# 采用二进制包解压安装,注意 必须要 下载 tar.gz 包
+es_download_url: https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-6.6.0.tar.gz
+es_version: "elasticsearch-6.6.0.tar.gz"
+es_install_dir: "{{ elk_home_dir }}/elasticsearch"
+es_data_dir: "{{ es_install_dir }}/data"
+es_user: elasticsearch
+es_group: elasticsearch
+es_config: "{{ es_install_dir }}/config"
+
+# es 的集群名称
+es_cluster_name: es-cluster
+# es 的节点名称, 必须开启 gather_facts 为 True, 否则会报错
+node_name: {{ ansible_hostname }}
+
+path_logs: "{{ es_install_dir }}/logs"
+
+http_port: 9200
+transport_tcp_port: 9300
+
+# 其余的配置参数请修改模板文件
+
+jdk_version: jdk-8u171-linux-x64.tar.gz
+# jdk 压缩文件和解压后的文件的对应关系
+jdk_unarchive_file: jdk1.8.0_171
+# jdk 解压安装目录
+jdk_install_dir: /usr/local/{{ jdk_unarchive_file }}
+
+###############################
+# logstash  基础配置           #
+###############################
+
+
+
+
+
+###############################
+# kibana 基础配置              #
+###############################

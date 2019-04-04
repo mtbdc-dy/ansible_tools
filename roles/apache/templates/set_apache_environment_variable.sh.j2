@@ -1,0 +1,6 @@
+APACHE_HOME={{ apache_install_dir }}
+if [ -d ${APACHE_HOME} ]
+then
+    PATH=${APACHE_HOME}/bin:${PATH}
+    export PATH
+fi

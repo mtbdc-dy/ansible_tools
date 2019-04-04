@@ -1,0 +1,93 @@
+- name: installing dependency packets for vsftp 
+  yum:
+    name:
+      - epel-release
+      - db4-utils 
+      - pam-devel 
+      - libcap
+    state: present
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+- name: create group vsftpd
+  group:
+    name: "{{ vsftpd_group }}"
+    state: present
+
+- name: create vsftpd virtual user
+  user:
+    name: "{{ vsftpd_user }}"
+    comment: "ftp virtual user"
+    create_home: yes
+    home: "{{ vsftpd_data_dir }}"
+    shell: /sbin/nologin
+    state: present
+    password: "{{ vsftpd_passwd }}"
+    group: "{{ vsftpd_group }}"
+    system: no
+
+# 创建 /etc/vsftpd 配置目录
+- name: create vsftpd configure directory
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    recurse: yes
+  with_items:
+    - "{{ vsftpd_conf_dir }}"
+    - "{{ vsftpd_virtual_dir }}"  # 虚拟账号的对应的认证用户的存储目录
+
+- name: create chroot_list
+  file:
+    path: "{{ vsftpd_conf_dir }}/chroot_list"
+    state: touch
+    owner: root
+    group: root
+
+- name: configure vsftpd
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    owner: root
+    group: root
+  with_items:
+    - { src: "vsftpd_logrotate.j2", dest: "/etc/logrotate.d/vsftpd", mode: "0644" }
+    - { src: "vsftpd_pam.j2", dest: "/etc/pam.d/vsftpd", mode: "0644" }
+    - { src: "ftpusers.j2", dest: "{{ vsftpd_conf_dir }}/ftpusers", mode: "0600" }
+    - { src: "user_list.j2", dest: "{{ vsftpd_conf_dir }}/user_list", mode: "0600" }
+    - { src: "vsftpd.conf.j2", dest: "{{ vsftpd_conf_dir }}/vsftpd.conf", mode: "0600" }
+    - { src: "vsftpd_conf_migrate.sh.j2", dest: "{{ vsftpd_conf_dir }}/vsftpd_conf_migrate.sh", mode: "0744" }
+    - { src: "vsftpd_login.txt.j2", dest: "{{ vsftpd_conf_dir }}/vsftpd_login.txt", mode: "0600" }
+
+- name: upload generate_db.sh scripts
+  copy:
+    src: "generate_db.sh"
+    dest: "{{ remote_temp_dir }}/generate_db.sh"
+    mode: 0755
+
+- name: generate db file and configure file for each other
+  command:
+    "{{ remote_temp_dir }}/generate_db.sh"
+  environment:
+    DATA_DIR: "{{ vsftpd_data_dir }}"
+    VIRTUAL_USER_FILE: "{{ vsftpd_conf_dir }}/vsftpd_login.txt"
+    VIRTUAL_USER_DIR: "{{ vsftpd_virtual_dir }}"
+    CHROOT_LIST: "{{ vsftpd_conf_dir }}/chroot_list"
+
+# 未让 ftp 用户均可登陆进入目录，需要设置正确的权限 
+- name: modify  {{ vsftpd_data_dir }} properties
+  file:
+    path: "{{ vsftpd_data_dir }}"
+    state: directory
+    recurse: yes
+    mode: 0755
+    owner: "{{ vsftpd_user }}"
+    group: "{{ vsftpd_group }}"
+
+- name: delete vvsftpd temp files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ remote_temp_dir }}/generate_db.sh"

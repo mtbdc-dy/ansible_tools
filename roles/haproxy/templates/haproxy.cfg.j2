@@ -1,0 +1,105 @@
+#---------------------------------------------------------------------
+# Example configuration for a possible web application.  See the
+# full configuration options online.
+#
+#   http://haproxy.1wt.eu/download/1.4/doc/configuration.txt
+#
+#---------------------------------------------------------------------
+
+#---------------------------------------------------------------------
+# Global settings
+#---------------------------------------------------------------------
+global
+    # to have these messages end up in /var/log/haproxy.log you will
+    # need to:
+    #
+    # 1) configure syslog to accept network log events.  This is done
+    #    by adding the '-r' option to the SYSLOGD_OPTIONS in
+    #    /etc/sysconfig/syslog
+    #
+    # 2) configure local2 events to go to the /var/log/haproxy.log
+    #   file. A line like the following can be added to
+    #   /etc/sysconfig/syslog
+    #
+    #    local2.*                       /var/log/haproxy.log
+    #
+    log         127.0.0.1 local2
+
+    chroot      {{ chroot }}
+    pidfile     {{ pidfile }}
+    maxconn     4000
+    user        {{ haproxy_user }}
+    group       {{ haproxy_group }}
+    daemon
+
+    # turn on stats unix socket
+    stats socket {{ chroot }}/stats
+
+#---------------------------------------------------------------------
+# common defaults that all the 'listen' and 'backend' sections will
+# use if not designated in their block
+#---------------------------------------------------------------------
+defaults
+    mode                    http
+    log                     global
+    option                  httplog
+    option                  dontlognull
+    option http-server-close
+    option forwardfor       except 127.0.0.0/8
+    option                  redispatch
+    retries                 3
+    timeout http-request    10s
+    timeout queue           1m
+    timeout connect         10s
+    timeout client          1m
+    timeout server          1m
+    timeout http-keep-alive 10s
+    timeout check           10s
+    maxconn                 3000
+
+########统计页面配置########
+listen stats
+    bind 0.0.0.0:{{ statistical_port }}
+    mode http
+    option httplog
+    log 127.0.0.1 local0 err
+    stats refresh 30s
+    maxconn 10               #最大连接数
+    stats uri /admin         #状态页面 http//ip:1080/admin访问
+    stats realm Haproxy\ Statistics
+    stats auth admin:admin   #用户和密码:admin
+    stats hide-version       #隐藏版本信息
+    stats admin if TRUE      #设置手工启动/禁用
+
+#---------------------------------------------------------------------
+# main frontend which proxys to the backends
+#---------------------------------------------------------------------
+frontend  main
+    bind *:{{ haproxy_port }}
+    acl url_static       path_beg       -i /static /images /javascript /stylesheets
+    acl url_static       path_end       -i .jpg .gif .png .css .js
+
+    use_backend static          if url_static
+    default_backend             web_server
+
+#---------------------------------------------------------------------
+# static backend for serving up images, stylesheets and such
+#---------------------------------------------------------------------
+backend static
+    balance     roundrobin
+    server      static 127.0.0.1:4331 check
+
+#---------------------------------------------------------------------
+# round robin balancing between the various backends
+#---------------------------------------------------------------------
+backend web_server
+    balance     roundrobin
+    option httpchk HEAD /index.html HTTP/1.0
+    option forwardfor    #后端服务获得真实ip
+    option httpclose     #请求完毕后主动关闭http通道
+    option abortonclose  #服务器负载很高，自动结束比较久的链接
+
+    # 以下为测试样例,请根据实际生产环境设置
+    {% for host in groups['tomcat'] %}
+    server app{{ host | regex_replace('[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.','') }} {{ host }}:8080 check inter 9000 rise 3 fall 3
+    {% endfor %}

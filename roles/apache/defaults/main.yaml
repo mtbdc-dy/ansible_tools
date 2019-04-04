@@ -1,0 +1,38 @@
+---
+#
+# Description: 以下的变量，用于控制 apache 安装的参数，请根据实际环境修改相应参数
+#
+
+# 安装 apache 的方式，packageManager(yum|dnf)|compileSource
+# 注意: 如果使用 packageManager 方式安装，请将如下的 目录参数修改为 包管理器安装后的默认路径
+install_type: compileSource
+
+# 决定 apache 是否依赖 role's common
+dependencies_common: false
+dependencies_squid: false
+
+# 安装 apache 的家目录
+install_home_dir: "/usr/local/apache_web"
+
+# 对 apache web 服务器的 基础配置参数 
+apache_install_dir: "{{ install_home_dir }}/httpd"
+apache_conf_dir: "{{ apache_install_dir }}/etc"
+apache_log_dir: "{{ apache_install_dir }}/logs"
+apache_html_doc_dir: "{{ apache_install_dir }}/htdocs"
+
+apache_user: apache
+apache_group: apache
+apache_server_admin: root@localhost
+apache_port: 80
+
+apache_source_version: "httpd-2.4.34.tar.gz"
+
+# apache 的依赖软件
+apr_install_dir:  "{{ install_home_dir }}/apr"
+apr_source_version: "apr-1.6.3.tar.gz"
+
+apr_iconv_install_dir: "{{ install_home_dir }}/apr-iconv"
+apr_iconv_source_version: "apr-iconv-1.2.2.tar.gz"
+
+apr_util_install_dir: "{{ install_home_dir }}/apr-util"
+apr_util_source_version: "apr-util-1.6.1.tar.gz"

@@ -1,0 +1,11 @@
+- name: reload mysqld service
+  shell: "{{ item }}"
+  with_items:
+    - "systemctl daemon-reload"
+  when: (ansible_distribution == "CentOS" or ansible_os_family == "RedHat") and ansible_distribution_major_version | int == 7
+
+- name: start mysql
+  service:
+    name: mysqld
+    state: started
+    enabled: yes

@@ -1,0 +1,61 @@
+# 关闭 THP
+# echo never > /sys/kernel/mm/transparent_hugepage/enabled
+
+# swap 使用权重设置
+# vm.overcommit_memory = 1; sysctl vm.overcommit_memory=1
+
+# 需要注意 vm.swappiness 在不同版本的内核的表现不同,应根据实际环境设置
+# echo vm.swappiness={bestvalue} >> /etc/sysctl.conf
+
+# 查看 redis 进程的 swap 空间使用
+# redis-cli -h [ip] -p [port] info server | grep process_id
+# cat /proc/[redis process id]/smaps | grep Swap
+
+# OOM killer 设置
+# echo {value} > /proc/[redis process id]/oom_adj      ----> 可以将 value 设置为 -17
+
+# TCP backlog 队列长度设置
+# echo "511" > /proc/sys/net/core/somaxconn
+
+# 时间校验
+# */5 * * * * /usr/sbin/ntpdate [ntp server] > /dev/null 2>&1
+
+- name: set permanent effect
+  lineinfile:
+    path: "{{ item.path }}"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  ignore_errors: yes
+  with_items:
+    - { path: "/etc/rc.d/rc.local", regexp: "^echo\ never\ >\ \/sys\/kernel\/mm\/transparent_hugepage\/enabled", line: "echo\ never\ >\ \/sys\/kernel\/mm\/transparent_hugepage\/enabled" }
+    - { path: "/etc/rc.d/rc.local", regexp: "^echo\ 511\ >\ \/proc\/sys\/net\/core\/somaxconn", line: "echo\ 511\ >\ \/proc\/sys\/net\/core\/somaxconn" }
+    - { path: "/etc/sysctl.conf", regexp: "^vm.overcommit_memory\ =\ 1", line: "vm.overcommit_memory\ =\ 1" }
+    - { path: "/etc/profile", regexp: "^ulimit -Sn 65535", line: "ulimit -Sn 65535" }
+
+- name: disable transparent huge page and setup backlog
+  shell: "{{ item }}"
+  ignore_errors: yes
+  with_items:
+    - "echo never > /sys/kernel/mm/transparent_hugepage/enabled"
+    - "echo \"511\" > /proc/sys/net/core/somaxconn"
+    - "source /etc/profile"
+
+- name: sysctl -p
+  shell: "{{ item.command }}"
+  with_items:
+    - { command: "/sbin/sysctl -p", os_distribution: "CentOS", os_version: "6" }
+    - { command: "/usr/sbin/sysctl -p", os_distribution: "CentOS", os_version: "7" }
+  when: ansible_distribution == item.os_distribution and ansible_distribution_major_version == item.os_version
+
+- name: install ntpdate package
+  yum:
+    name: ntpdate
+    state: present
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+- name: ntpdate time
+  cron:
+    name: "ntpdate"
+    minute: "5"
+    job: "/usr/bin/ntpdate {{ ntp_server }}"
+  when: ntp_server != ""

@@ -1,0 +1,42 @@
+---
+# defaults file for ftp
+
+#################################
+#   安装 vsftpd 时的相关配置参数   #
+#################################
+vsftpd_version: "vsftpd-3.0.3.tar.gz"
+
+vsftpd_install_dir: "/usr/local/vsftpd"
+
+# vsftpd 的配置目录
+vsftpd_conf_dir: "/etc/vsftpd"
+# 虚拟账户登录时，设置的 ftp 用户的配置存储目录
+vsftpd_virtual_dir: "{{ vsftpd_conf_dir }}/virtual_user_dir"
+
+# 日志设置
+vsftpd_log: "/var/log/vsftpd.log"
+vsftpd_xferlog: "/var/log/xferlog"
+
+vsftpd_group: "ftpuser"
+vsftpd_user: "ftpuser"
+vsftpd_passwd: "123456"
+
+vsftpd_listen_port: 21
+
+# 被动模式下的数据端口上下限
+vsftpd_pasv_min_port: 10010
+vsftpd_pasv_max_port: 10020
+
+# vsftpd 的数据目录
+vsftpd_data_dir: "/home/ftpdata"
+
+##############################################################
+#    如果配置的是 sftp,则通过再配置 ssh ---> 注意 openssh 的版本   #
+##############################################################
+
+sftp_group: "sftp"
+sftp_user: "sftpuser"
+
+sftp_passwd: "123456"
+
+sftp_data_dir: "/home/sftpdata"

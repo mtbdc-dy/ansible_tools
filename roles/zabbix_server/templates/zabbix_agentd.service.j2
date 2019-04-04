@@ -1,0 +1,18 @@
+[Unit]
+Description=Zabbix Agent
+After=syslog.target
+After=network.target
+
+[Service]
+Environment="CONFFILE={{ zabbix_conf_dir }}/etc/zabbix_agentd.conf"
+EnvironmentFile={{ zabbix_conf_dir }}/etc/zabbix_agentd.conf.d/
+Type=forking
+Restart=on-failure
+PIDFile={{ zabbix_logs_dir }}/zabbix_agentd.pid
+KillMode=control-group
+ExecStart={{ zabbix_install_dir }}/sbin/zabbix_agentd -c $CONFFILE
+ExecStop=/bin/kill -SIGTERM $MAINPID
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

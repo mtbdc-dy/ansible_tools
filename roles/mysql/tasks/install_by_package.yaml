@@ -1,0 +1,82 @@
+- name: determine whether {{ mysql_install_dir }} exists
+  stat:
+    path: "{{ mysql_install_dir }}"
+  register: mysql_result
+
+# 加入目标主机已经安装了，则报错，并退出该 剧本
+- name: output information
+  fail:
+    msg: "The target host has been installed and withdrawn from the playbook."
+  when: mysql_result.stat.exists
+
+- name: upload mysql source code
+  copy:
+    src: "{{ item.name }}"
+    dest: "{{ item.dest }}"
+    mode: 0755
+  with_items:
+    - { name: "{{ mysql_bin_version }}", dest: "{{ remote_temp_dir }}/{{ mysql_bin_version }}" }
+    #- { name: "initial_mysql.sh", dest: "{{ remote_temp_dir }}/initial_mysql.sh" }
+
+- name: create mysql group
+  group:
+    name: "{{ mysql_group }}"
+    state: present
+
+- name: create mysql user
+  user:
+    name: "{{ mysql_user }}"
+    comment: "mysql database user"
+    create_home: no
+    shell: /usr/bin/false
+    state: present
+    group: "{{ mysql_group }}"
+    system: yes
+
+- name: create mysql installation dir
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    recurse: yes
+    owner: "{{ mysql_user }}"
+    group: "{{ mysql_group }}"
+  with_items:
+    - { path: "{{ mysql_install_dir }}" }
+    - { path: "{{ mysql_conf_dir }}" }
+    - { path: "{{ mysql_logs_dir }}" }
+    - { path: "{{ mysql_running_info }}" }
+
+# yum 安装 mysql 的依赖环境,如果为局域网，可以在 inventory/group_vars/all.yaml 中 配置 http_proxy 和 https_proxy (如果已经有 代理服务器)
+# 同时 roles/mysql/defaults/main.yaml 中设置 dependencies_common 为 true
+- name: yum install ncurses-devel perl
+  yum:
+    name:
+      - ncurses-devel
+      - perl
+      - cmake
+      - numactl
+      - libaio 
+      - libaio-devel
+      - expect
+      - tcl
+    state: present
+    update_cache: no
+    disable_gpg_check: no
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+- name: unarchive {{ mysql_bin_version }}
+  unarchive:
+    src: "{{ remote_temp_dir }}/{{ mysql_bin_version }}"
+    dest: "{{ remote_temp_dir }}"
+    remote_src: yes
+  
+- name: copy mysql file to {{ mysql_install_dir }}
+  shell: "mv -f {{ remote_temp_dir }}/{{ mysql_bin_version | regex_replace('.tar.gz','') }}/* {{ mysql_install_dir }}"
+
+- name: delete upload's files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ remote_temp_dir }}/{{ mysql_bin_version | regex_replace('.tar.gz','') }}"
+    - "{{ remote_temp_dir }}/{{ mysql_bin_version }}"

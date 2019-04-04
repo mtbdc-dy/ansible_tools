@@ -1,0 +1,35 @@
+---
+# defaults file for mysql
+#
+# Description: 
+#     安装 mysql 的相关参数设置、请根据实际环境 修改 templates/my.cnf.j2 中的相关参数值
+# 
+
+# 安装 mysql 的方式，packageManager(yum|dnf) | compileSource
+install_type: packageManager
+
+# 安装 mysql 是否依赖 role's common
+# 在 common 中 会安装 cmake, gcc 等基础开发包，如果目标机器未有，则设置为 true
+dependencies_common: false
+
+mysql_install_dir: /usr/local/mysql
+mysql_conf_dir: "{{ mysql_install_dir }}/etc"
+mysql_data_dir: "{{ mysql_install_dir }}/data"
+mysql_logs_dir: "{{ mysql_install_dir }}/logs"
+mysql_running_info: "{{ mysql_install_dir }}/running_info"
+
+mysql_user: mysql
+mysql_group: mysql
+
+mysql_port: 3306
+
+connect_username: root
+# 初始化 mysql root 用户密码
+setup_root_password: "DKcJ,e#.d74U"
+
+# 注意: mysql-5.7 版本之后系列对于 boost 版本是有要求的，请查阅官方文档
+mysql_source_code: mysql-5.7.24.tar.gz
+boost_source_code: boost_1_59_0.tar.gz
+
+# 如果 采用 packageManager 安装
+mysql_bin_version: mysql-5.7.24-linux-glibc2.12-x86_64.tar.gz

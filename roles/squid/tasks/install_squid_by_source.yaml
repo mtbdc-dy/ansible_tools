@@ -1,0 +1,75 @@
+# 判断目标主机是否已经安装 apache 
+- name: determine whether {{ squid_install_dir }} exists
+  stat:
+    path: "{{ squid_install_dir }}"
+  register: squid_result
+
+# 加入目标主机已经安装了，则报错，并退出该 剧本
+- name: output information
+  fail:
+    msg: "The target host has been installed and withdrawn from the playbook."
+  when: squid_result.stat.exists
+
+- name: Installing dependency packets for squid
+  yum:
+    name:
+      - kernel-headers 
+      - kernel-devel
+      - glibc-devel
+      - gcc 
+      - gcc-c++ 
+      - autoconf 
+      - libjpeg 
+      - libjpeg-devel 
+      - libpng 
+      - libpng-devel 
+      - freetype 
+      - freetype-devel 
+      - libxml2 
+      - libxml2-devel 
+      - zlib 
+      - zlib-devel 
+      - glibc 
+      - glibc-devel 
+      - bzip2 
+      - bzip2-devel 
+      - ncurses 
+      - ncurses-devel 
+      - e2fsprogs 
+      - e2fsprogs-devel 
+      - libidn 
+      - libidn-devel 
+      - openssl 
+      - openssl-devel 
+      - make 
+      - cmake 
+      - bison-devel 
+    state: latest
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+- name: upload squid source code
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0755
+  with_items:
+    - { src: "{{ squid_version }}", dest: "{{ remote_temp_dir }}/{{ squid_version }}" }
+    - { src: "compile_squid.sh", dest: "{{ remote_temp_dir }}/compile_squid.sh" }
+  
+- name: compile squid
+  command:
+    "{{ remote_temp_dir }}/compile_squid.sh"
+  environment:
+    SQUID_SOURCE_CODE: "{{ remote_temp_dir }}/{{ squid_version }}"
+    SQUID_INSTALL_DIR: "{{ squid_install_dir }}"
+
+# 配置 squid
+- include: configure_squid.yaml
+
+- name: delete source code
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ remote_temp_dir }}/compile_squid.sh"
+    - "{{ remote_temp_dir }}/{{ squid_version }}"

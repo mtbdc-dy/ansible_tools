@@ -1,0 +1,6 @@
+RUBY_HOME={{ ruby_install_dir }}
+if [ -d ${RUBY_HOME} ]
+then
+    PATH=${RUBY_HOME}/bin:${PATH}
+    export PATH
+fi

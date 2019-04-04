@@ -1,0 +1,22 @@
+- name: create zabbix_agentd.log
+  file:
+    path: "{{ zabbix_agentd_logs_dir }}/zabbix_agentd.log"
+    state: touch
+    mode: 0766
+  
+- name: change zabbix installation property
+  file:
+    path: "{{ zabbix_agentd_install_dir }}"
+    state: directory
+    owner: "{{ zabbix_agentd_user }}"
+    group: "{{ zabbix_agentd_group }}"
+
+- name: reload zabbix_agentd service
+  shell: "systemctl daemon-reload"
+  when: (ansible_distribution == "CentOS" or ansible_os_family == "RedHat") and ansible_distribution_major_version | int == 7
+
+- name: start zabbix_agentd
+  service:
+    name: zabbix_agentd
+    enabled: yes
+    state: started

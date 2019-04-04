@@ -1,0 +1,27 @@
+---
+# defaults file for tomcat
+
+# 是否依赖 common 角色模块
+dependencies_common: no
+# 运行 tomcat 的用户
+tomcat_user: tomcat
+tomcat_group: tomcat
+tomcat_password: "!Q2w3e4r5t6y"
+
+# tomcat 二进制文件版本
+tomcat_binary_version: apache-tomcat-8.5.35.tar.gz
+# tomcat 解压安装目录
+tomcat_unarchive_dir: /usr/local/tomcat
+# 处理 tomcat 日志脚本存放目录
+operate_tomcat_scripts_dir: "{{ tomcat_unarchive_dir }}/scripts"
+
+# jdk 版本
+jdk_version: jdk-8u171-linux-x64.tar.gz
+# jdk 压缩文件和解压后的文件的对应关系
+jdk_unarchive_file: jdk1.8.0_171
+# jdk 解压安装目录
+jdk_install_dir: /usr/local/{{ jdk_unarchive_file }}
+
+tomcat_shutdown_port: 8005
+tomcat_ajp_port: 8009
+tomcat_server_port: 8080

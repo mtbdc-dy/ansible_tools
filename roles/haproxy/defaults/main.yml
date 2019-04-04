@@ -1,0 +1,28 @@
+---
+# defaults file for haproxy
+
+# 请查阅 haproxy-xxx.tar.gz 源码包中的 README 文件中的
+# 操作系统内核 和 编译参数的对应关系
+target_linux_kernel_version: linux26
+# 目标主机的 位数
+ansible_architecture: x86_64
+
+haproxy_user: haproxy
+haproxy_group: haproxy
+# 安装目录
+haproxy_install_dir: "/usr/local/haproxy"
+# 配置文件目录
+haproxy_conf_dir: "{{ haproxy_install_dir }}/etc"
+# 
+chroot: /var/lib/haproxy
+#
+pidfile: /var/run/haproxy.pid
+# haproxy 监控端口
+haproxy_port: 5000
+# 统计页面访问端口
+statistical_port: 1080
+
+# 对于 haproxy.cfg 中的详细并灵活的配置，请修改 template/haproxy.cfg.j2 的内容
+
+# haproxy 源码文件
+haproxy_source_version: haproxy-1.8.17.tar.gz

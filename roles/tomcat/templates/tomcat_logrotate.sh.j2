@@ -1,0 +1,66 @@
+#!/bin/bash -
+#===============================================================================
+#
+#          FILE: tomcat_logrotate.sh
+#
+#         USAGE: ./tomcat_logrotate.sh
+#
+#   DESCRIPTION: 
+#          (1) logrotate + cron 作日志定时切割和保留
+#
+#       OPTIONS: ---
+#  REQUIREMENTS: ---
+#          BUGS: ---
+#         NOTES: ---
+#        AUTHOR: Stalker-lee (), 1318895540@qq.com
+#  ORGANIZATION: 
+#       CREATED: 2019/01/25 08时49分58秒
+#      REVISION:  ---
+#===============================================================================
+
+set -o nounset                                  # Treat unset variables as an error
+
+# tomcat 日志存放目录
+readonly LOGS_DIR="{{ tomcat_unarchive_dir }}/logs"
+# 日志保留期限,默认为 7 天
+readonly PERSIST_DAY=7
+# /etc/logrotate.d/ 目录下的 tomcat 切割配置文件
+readonly TOMCAT_LOGROTATE="/etc/logrotate.d/tomcat"
+
+# 在 /etc/logrotate.d/ 目录下创建 tomcat 文件
+if [ ! -f ${TOMCAT_LOGROTATE} ]
+then
+    cat > /etc/logrotate.d/tomcat << EOF
+${LOGS_DIR}/catalina.out {
+daily
+rotate ${PERSIST_DAY}
+nocompress
+copytruncate
+create 644 {{ tomcat_user }} {{ tomcat_group }}
+size 1024M
+dateext
+}
+EOF
+fi
+
+if [ -d ${LOGS_DIR} ]
+then
+    /usr/sbin/logrotate /etc/logrotate.conf
+    if [ $? -eq 0 ]
+    then
+        file="${LOGS_DIR}/catalina.out-$(date +"%Y%m%d")"
+        if [ -f ${file} ]
+        then
+            mv ${file} ${LOGS_DIR}/catalina.out-$(date +"%Y-%m-%d-%H-%M)`
+        fi
+    else
+        echo -e "Failed to log ${LOGS_DIR}/catalina.out files"
+    fi
+
+    # 删除历史文件
+    find ${LOGS_DIR} -ctime +${PERSIST_DAY} \( -name "*.tar.gz" -o -name "*.log" -o -name "*.txt" \) -exec rm -rf {} \;
+else
+    echo -e "${LOGS_DIR} is not exists!"
+fi
+
+exit 0

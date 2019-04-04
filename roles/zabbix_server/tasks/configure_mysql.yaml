@@ -1,0 +1,52 @@
+---
+#
+# Description: 配置数据库，默认配置如下
+# DBType: mysql
+# database: zabbix
+# username: zabbix
+# password: zabbix
+# connection: socket
+
+- name: create a new database with name "{{ database_name }}"
+  mysql_db:
+    login_host: "{{ db_connect_ip }}"
+    login_password: "{{ db_root_password }}"
+    login_port: "{{ db_connect_port }}"
+    login_user: root
+    encoding: utf8
+    collation: utf8_bin
+    name: "{{ database_name }}"
+    state: present
+
+- name: create database user with name "{{ username }}" and password with "{{ database_name }}" database privileges
+  mysql_user:
+    login_host: "{{ db_connect_ip }}"
+    login_user: root
+    login_password: "{{ db_root_password }}"
+    login_port: "{{ db_connect_port }}"
+    name: "{{ username }}"
+    password: "{{ password }}"
+    priv: '{{ database_name }}.*:ALL,GRANT'
+    state: present
+
+- name: upload zabbix_partition_tables.sql
+  copy:
+      src: "zabbix_partition_tables.sql"
+      dest: "{{ remote_temp_dir }}/zabbix_partition_tables.sql"
+      mode: 0644
+
+# 注意: 以下的表是有导入顺序  (1) schema.sql  (2) images.sql (3) data.sql (4) zabbix_partition_tables.sql
+- name: restore database backup files
+  mysql_db:
+    login_host: "{{ db_connect_ip }}"
+    login_port: "{{ db_connect_port }}"
+    login_user: "{{ db_username }}"
+    login_password: "{{ db_password }}"
+    name: "{{ database_name }}"
+    state: import
+    target: "{{ item }}"
+  with_items:
+    - "{{ remote_temp_dir }}/{{ zabbix_source_code | regex_replace('.tar.gz', '') }}/database/mysql/schema.sql"
+    - "{{ remote_temp_dir }}/{{ zabbix_source_code | regex_replace('.tar.gz', '') }}/database/mysql/images.sql"
+    - "{{ remote_temp_dir }}/{{ zabbix_source_code | regex_replace('.tar.gz', '') }}/database/mysql/data.sql"
+    - "{{ remote_temp_dir }}/zabbix_partition_tables.sql"

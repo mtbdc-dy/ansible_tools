@@ -1,0 +1,84 @@
+# 判断目标主机是否已经安装 apache 
+- name: determine whether {{ zabbix_install_dir }} exists
+  stat:
+    path: "{{ zabbix_install_dir }}"
+  register: zabbix_result
+
+# 加入目标主机已经安装了，则报错，并退出该 剧本
+- name: output information
+  fail:
+    msg: "The target host has been installed and withdrawn from the playbook."
+  when: zabbix_result.stat.exists
+
+- name: create zabbix group
+  group:
+    name: "{{ zabbix_group }}"
+    state: present
+    system: yes
+
+- name: create zabbix user
+  user:
+    name: "{{ zabbix_user }}"
+    comment: "zabbix monitor user"
+    shell: /usr/bin/false
+    create_home: no
+    system: yes
+
+- name: upload zabbix source code
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0755
+  with_items:
+    - { src: "{{ zabbix_source_code }}", dest: "{{ remote_temp_dir }}/{{ zabbix_source_code }}" }
+    - { src: "compile_zabbix.sh", dest: "{{ remote_temp_dir }}/compile_zabbix.sh" }
+
+- name: create installation directory
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    recurse: yes
+    owner: "{{ zabbix_user }}"
+    group: "{{ zabbix_group }}"
+  with_items:
+    - { path: "{{ zabbix_install_dir }}" }
+    - { path: "{{ zabbix_logs_dir }}" }
+    - { path: "{{ zabbix_conf_dir }}" }
+    - { path: "{{ zabbix_scripts_dir }}" }
+    - { path: "{{ statistical_result_dir }}" }
+
+- name: installing dependency packets for zabbix
+  yum:
+    name:
+      - libxml2
+      - libxml2-devel
+      - libssh2-devel
+      - unixODBC-devel
+      - net-snmp-devel
+      - OpenIPMI-devel
+      - libevent-devel
+      - pcre
+      - pcre-devel
+      - curl-devel
+    state: present
+    update_cache: yes
+    disable_gpg_check: yes
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+- name: compile zabbix source code
+  command:
+    "{{ remote_temp_dir }}/compile_zabbix.sh"
+  environment:
+    ZABBIX_INSTALL_DIR: "{{ zabbix_install_dir }}"
+    ZABBIX_SOURCE_FILE: "{{ remote_temp_dir }}/{{ zabbix_source_code }}"
+    WITH_MYSQL: "{{ with_mysql }}"
+    WITH_ICONV: "{{ with_iconv }}"
+  when: ansible_env.SHELL == "/bin/bash"
+
+- name: delete source code
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ remote_temp_dir }}/{{ zabbix_source_code }}"
+    - "{{ remote_temp_dir }}/compile_zabbix.sh"

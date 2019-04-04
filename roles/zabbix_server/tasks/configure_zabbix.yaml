@@ -1,0 +1,31 @@
+- name: configure zabbix
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - { src: "zabbix_agentd.conf.j2", dest: "{{ zabbix_conf_dir }}/zabbix_agentd.conf", mode: "0644" }
+    - { src: "zabbix_server.conf.j2", dest: "{{ zabbix_conf_dir }}/zabbix_server.conf", mode: "0644" }
+    - { src: "zabbix_proxy.conf.j2", dest: "{{ zabbix_conf_dir }}/zabbix_proxy.conf", mode: "0644" }
+    - { src: "zabbix_environment.sh.j2", dest: "/etc/profile.d/zabbix", mode: "0644" }
+
+- name: set zabbix self boot
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    owner: root
+    group: root
+  with_items:
+    - { src: "zabbix_agentd.sh.j2", dest: "/etc/init.d/zabbix_agentd", mode: "0755", os_distribution: "CentOS", os_version: "6" }
+    - { src: "zabbix_server.sh.j2", dest: "/etc/init.d/zabbix_server", mode: "0755", os_distribution: "CentOS", os_version: "6" }
+    - { src: "zabbix_agentd.service.j2", dest: "/usr/lib/systemd/system/zabbix_agentd.service", mode: "0644", os_distribution: "CentOS", os_version: "7" }
+    - { src: "zabbix_server.service.j2", dest: "/usr/lib/systemd/system/zabbix_server.service", mode: "0644", os_distribution: "CentOS", os_version: "7" }
+  when: ansible_distribution == item.os_distribution and ansible_distribution_major_version == item.os_version
+
+- name: modify {{ zabbix_install_dir }} properties
+  file:
+    path: "{{ zabbix_install_dir }}"
+    state: directory
+    owner: "{{ zabbix_user }}"
+    group: "{{ zabbix_group }}"

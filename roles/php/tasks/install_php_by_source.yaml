@@ -1,0 +1,103 @@
+---
+#
+# Description:
+#
+
+# 判断 php 是否已经安装
+- name: determine whether {{ php_install_dir }} exists
+  stat:
+    path: "{{ php_install_dir }}"
+  register: php_result
+
+# 加入目标主机已经安装了，则报错，并退出该 剧本
+- name: output information
+  fail:
+    msg: "The target host has been installed and withdrawn from the playbook."
+  when: php_result.stat.exists
+
+# 安装 编译过程依赖的组件
+- name: install dependencies for compiling php
+  yum:
+    name:
+      - autoconf
+      - automake
+      - bison
+      - bison-devel
+      - bzip2
+      - bzip2-devel
+      - curl
+      - libcurl-devel
+      - flex
+      - flex-devel
+      - freetype
+      - freetype-devel
+      - gd
+      - gd-devel
+      - glibc
+      - glibc-devel
+      - libjpeg-turbo
+      - libjpeg-turbo-devel
+      - libpng
+      - libpng-devel
+      - libtool
+      - libxml2
+      - libxml2-devel
+      - libxslt
+      - libxslt-devel
+      - openldap
+      - openldap-devel
+      - openssl
+      - openssl-devel
+      - pcre
+      - pcre-devel
+      - net-snmp
+      - net-snmp-devel
+      - python-devel
+    state: latest
+    update_cache: yes
+  when: ansible_os_family == "RedHat"
+
+- name: upload source file
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0644
+  with_items:
+    - { src: "{{ libiconv_version }}", dest: "{{ remote_temp_dir }}/{{ libiconv_version }}" }
+    - { src: "{{ libmcrypt_version }}", dest: "{{ remote_temp_dir }}/{{ libmcrypt_version }}" }
+    - { src: "{{ libxml_version }}", dest: "{{ remote_temp_dir }}/{{ libxml_version }}" }
+    - { src: "{{ php_version }}", dest: "{{ remote_temp_dir }}/{{ php_version }}" }
+
+- name: Upload compiled scripts
+  template:
+    src: "compile_php.sh.j2"
+    dest: "{{ remote_temp_dir }}/compile_php.sh"
+    mode: 0755
+
+- name: install php by compile php source
+  command:
+    "{{ remote_temp_dir }}/compile_php.sh"
+  environment:
+    PHP_SOURCE_FILE: "{{ remote_temp_dir }}/{{ php_version }}"
+    PHP_INSTALL_DIR: "{{ php_install_dir }}"
+    LIBICONV_SOURCE_FILE: "{{ remote_temp_dir }}/{{ libiconv_version }}"
+    LIBICONV_INSTALL_DIR: "{{ with_iconv }}"
+    LIBMCRYPT_SOURCE_FILE: "{{ remote_temp_dir }}/{{ libmcrypt_version }}"
+    LIBMCRYPT_INSTALL_DIR: "{{ with_mcrypt }}"
+    LIBXML_SOURCE_FILE: "{{ remote_temp_dir }}/{{ libxml_version }}"
+    LIBXML_INSTALL_DIR: "{{ with_libxml }}"
+    WITH_MYSQLI: "{{ with_mysqli }}"
+    WITH_MYSQL_SOCK: "{{ with_mysql_sock }}"
+    WITH_PDO_MYSQL: "{{ with_pdo_mysql }}"
+    WITH_APXS: "{{ with_apxs2 }}"
+  register: compile_result
+  
+- name: delete upload's files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ remote_temp_dir }}/compile_php.sh"
+    - "{{ remote_temp_dir }}/{{ libiconv_version }}"
+    - "{{ remote_temp_dir }}/{{ libmcrypt_version }}"
+    - "{{ remote_temp_dir }}/{{ php_version }}"

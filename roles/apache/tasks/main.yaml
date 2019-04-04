@@ -1,0 +1,21 @@
+---
+# tasks file for apache
+
+# 判断目标主机是否已经安装 apache 
+- name: determine whether {{ apache_install_dir }} exists
+  stat:
+    path: "{{ apache_install_dir }}"
+  register: apache_result
+
+# 加入目标主机已经安装了，则报错，并退出该 剧本
+# - name: output information
+#   fail:
+#     msg: "The target host has been installed and withdrawn from the playbook."
+#   when: apache_result.stat.exists
+
+- include: install_apache_by_package.yaml
+  when: install_type == "packageManager"
+
+# 源码安装时，当指定的安装路径存在时，则退出安装
+- include: install_apache_by_source.yaml
+  when: install_type == "compileSource" and not apache_result.stat.exists

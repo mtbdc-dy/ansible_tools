@@ -1,0 +1,61 @@
+- name: create haproxy group
+  group:
+    name: "{{ haproxy_group }}"
+    state: present
+
+- name: create haproxy user
+  user:
+    name: "{{ haproxy_user }}"
+    comment: "high availible proxy user"
+    create_home: no
+    shell: /bin/false
+    group: "{{ haproxy_group }}"
+    state: present
+
+- name: configure haproxy
+  template:
+    src: "haproxy.cfg.j2"
+    dest: "{{ haproxy_conf_dir }}/haproxy.cfg"
+    mode: 0644
+
+- name: modify haproxy installation directory property
+  file:
+    path: "{{ item }}"
+    owner: "{{ haproxy_user }}"
+    group: "{{ haproxy_group }}"
+    recurse: yes
+  with_items:
+    - "{{ chroot }}"
+    - "{{ haproxy_install_dir }}"
+
+- name: set haproxy self boot
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    owner: root
+    group: root
+  with_items:
+    - { src: "haproxy.sh.j2", dest: "/etc/init.d/haproxy", mode: "0755", os_distribution: "CentOS", os_version: "6" }
+    - { src: "haproxy.service.j2", dest: "/usr/lib/systemd/system/haproxy.service", mode: "0644", os_distribution: "CentOS", os_version: "7" }
+  when: ansible_distribution == item.os_distribution and ansible_distribution_major_version == item.os_version
+
+# #NAT转发
+# sed -i 's@net.ipv4.ip_forward = 0@net.ipv4.ip_forward = 1@g' /etc/sysctl.conf
+- name: add 'net.ipv4.ip_nonlocal_bind = 1' to /etc/sysctl.conf
+  lineinfile:
+    path: "/etc/sysctl.conf"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  with_items:
+    - { regexp: "^net.ipv4.ip_forward\ =\ 0", line: "net.ipv4.ip_forward\ =\ 1" }   # 允许内核转发
+    - { regexp: "^net.ipv4.ip_nonlocal_bind\ =\ 1", line: "net.ipv4.ip_nonlocal_bind\ =\ 1" } #允许没监听IP时启动
+
+- name: sysctl the linux kernel parameters
+  shell: "/sbin/sysctl -p"
+
+# #日志配置
+# sed -i 's/^#$ModLoad imudp/$ModLoad imudp/g' /etc/rsyslog.conf
+# sed -i 's/^#$UDPServerRun 514/$UDPServerRun 514/g' /etc/rsyslog.conf
+# echo 'local0.* /var/log/haproxy.log'>>/etc/rsyslog.conf #添加haproxy日志路径
+# systemctl restart rsyslog

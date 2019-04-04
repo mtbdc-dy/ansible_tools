@@ -1,0 +1,10 @@
+---
+# tasks file for haproxy
+
+- include: install_haproxy_by_source.yaml
+
+- include: configure_haproxy.yaml
+
+- include: start_haproxy.yaml
+
+#- include: install_keepalive_by_source.yaml

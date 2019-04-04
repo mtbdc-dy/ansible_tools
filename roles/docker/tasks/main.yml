@@ -1,0 +1,22 @@
+---
+# tasks file for docker
+
+# 打印出目标主机的内核版本, docker 官网建议 Linux 的内核 >= 3.10
+- name: get linux kernel
+  shell: "uname -r | awk -F '-' '{print $1}'"
+  register: result
+
+# - name: determines whether the kernel version is larger than 3.10.0
+#   debug:
+#     msg: "{{ result.stdout }}"
+#   when: result.stdout >= "3.10.0"
+
+- include: install_docker.yaml
+  when: result.stdout >= "3.10.0"
+
+# 是否创建私服
+- include: install_docker_registry.yaml
+  when: is_private_registry and result.stdout >= "3.10.0"
+
+- include: configure_docker.yaml
+  when: result.stdout >= "3.10.0"

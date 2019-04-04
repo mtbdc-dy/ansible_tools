@@ -1,0 +1,8 @@
+---
+# tasks file for tomcat
+
+- include: install_tomcat_by_binary.yaml
+  
+- include: configure_tomcat.yaml
+
+- include: start_tomcat.yaml

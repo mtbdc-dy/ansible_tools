@@ -1,0 +1,84 @@
+- name: determine whether {{ zabbix_agentd_install_dir }} exists
+  stat:
+    path: "{{ zabbix_agentd_install_dir }}"
+  register: zabbix_result
+
+# 加入目标主机已经安装了，则报错，并退出该 剧本
+- name: output information
+  fail:
+    msg: "The target host has been installed and withdrawn from the playbook."
+  when: zabbix_result.stat.exists 
+
+- name: upload zabbix source code
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0755
+  with_items:
+    - { src: "{{ zabbix_source_code }}", dest: "{{ remote_temp_dir }}/{{ zabbix_source_code }}" }
+    - { src: "compile_zabbix_agentd.sh", dest: "{{ remote_temp_dir }}/compile_zabbix_agentd.sh" }
+
+- name: create zabbix user
+  user:
+    name: "{{ zabbix_agentd_user }}"
+    comment: "zabbix monitor user"
+    shell: /usr/bin/false
+    create_home: no
+    system: yes
+  
+- name: create installation directory
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    recurse: yes
+    owner: "{{ zabbix_agentd_user }}"
+    group: "{{ zabbix_agentd_user }}"
+  with_items:
+    - { path: "{{ zabbix_agentd_install_dir }}" }
+    - { path: "{{ zabbix_agentd_logs_dir }}" }
+
+- name: compile zabbix source
+  command:
+    "{{ remote_temp_dir }}/compile_zabbix_agentd.sh"
+  environment:
+    ZABBIX_AGENTD_INSTALL_DIR: "{{ zabbix_agentd_install_dir }}"
+    ZABBIX_SOURCE_CODE: "{{ remote_temp_dir }}/{{ zabbix_source_code }}"
+  register: compile_result
+  when: ansible_env.SHELL == "/bin/bash"
+
+- name: configure zabbix_agentd
+  template:
+    src: zabbix_agentd.conf.j2
+    dest: "{{ zabbix_conf_dir }}/zabbix_agentd.conf"
+    mode: "0644"
+  notify:
+    - create zabbix_agentd.log
+    - change zabbix installation property
+  when: compile_result is succeeded
+
+# 是否生成 ca 数字证书,需要修改配置文件,以 开启 权限认证
+- include: gen-certs.yml
+  when: is_certificate
+
+- name: set zabbix_agentd self boot
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  notify:
+    - reload zabbix_agentd service
+    - start zabbix_agentd
+  with_items:
+    - { src: "zabbix_agentd.sh.j2", dest: "/etc/init.d/zabbix_agentd", mode: "0755", os_distribution: "CentOS", os_major_version: "6" }
+    - { src: "zabbix_agentd.service.j2", dest: "/usr/lib/systemd/system/zabbix_agentd.service", mode: "0644", os_distribution: "CentOS", os_major_version: "7" }
+  when: item.os_distribution == ansible_distribution and item.os_major_version == ansible_distribution_major_version
+
+- name: delete zabbix source code
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ remote_temp_dir }}/{{ zabbix_source_code }}"
+    - "{{ remote_temp_dir }}/compile_zabbix_agentd.sh"

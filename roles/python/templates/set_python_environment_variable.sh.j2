@@ -1,0 +1,8 @@
+# 新安装的 python 的环境变量设置
+
+PYTHON_HOME={{ python_install_dir }}
+if [ -d {{ python_install_dir }} ]
+then
+    PATH=${PYTHON_HOME}/bin:${PATH}
+    export PATH
+fi

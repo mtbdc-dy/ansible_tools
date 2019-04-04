@@ -1,0 +1,7 @@
+MYSQL_HOME={{ mysql_install_dir }}
+
+if [ -d ${MYSQL_HOME} ]
+then
+    PATH=${MYSQL_HOME}/bin:${PATH}
+    export PATH
+fi

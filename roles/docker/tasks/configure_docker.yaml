@@ -1,0 +1,31 @@
+# 默认情况下, 默认情况下 docker 命令会使用 Unix socket 与 Dockers引擎通讯。而只有
+# root 用户 和 docker 组的用户才可以访问 Docker 引擎的 Unix socket。出于安全考虑，一般 linux
+# 系统上不会直接使用 root 用户，因此将需要访问的用户 添加到 docker 组中
+- name: add visit user to docker groups
+  user:
+    name: "{{ item }}"
+    groups: "docker"
+    append: yes
+  with_items:
+     - "{{ docker_users | split(';') }}"
+
+- name: create docker conf dir
+  file:
+    path: "{{ docker_conf_dir }}"
+    state: directory
+    owner: root
+    group: root
+
+- name: add daemon.json to docker
+  template:
+    src: "daemon.json.j2"
+    dest: "{{ docker_conf_dir }}/daemon.json"
+    owner: root
+    group: root
+    mode: 0644
+
+- name: restart docker service
+  service:
+    name: dockerd
+    state: restarted
+    enabled: yes

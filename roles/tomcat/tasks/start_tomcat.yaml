@@ -1,0 +1,2 @@
+- name: start tomcat service
+  shell: "/etc/init.d/tomcat start"

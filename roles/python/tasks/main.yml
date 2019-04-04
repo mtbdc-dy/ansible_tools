@@ -1,0 +1,37 @@
+---
+# tasks file for python
+
+- name: upload {{ python_version }}
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - { src: "{{ python_version }}", dest: "{{ remote_temp_dir }}/{{ python_version }}", mode: "0644" }
+    - { src: "compile_python.sh", dest: "{{ remote_temp_dir }}/compile_python.sh", mode: "0755" }
+
+- name: compile python
+  command:
+    "{{ remote_temp_dir }}/compile_python.sh"
+  environment:
+    PYTHON_SOURCE: "{{ remote_temp_dir }}/{{ python_version }}"
+    PYTHON_INSTALL_DIR: "{{ python_install_dir }}"
+
+- name: setup python environment variable
+  template:
+    src: "set_python_environment_variable.sh.j2"
+    # 为避免同时安装 python2 和 python3 下的环境变量被覆盖的情况, 则将 /etc/profile.d/ 下的 shell 脚本以 安装的
+    # python 版本命令 ===> 下载的 python 源码包名称格式: Python-x.x.x.tgz
+    dest: "/etc/profile.d/python{{ python_version | replace('Python-', '') | replace('.tgz', '') }}.sh"
+    mode: 0644
+    owner: root
+    group: root
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat" 
+
+- name: delete python source code files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ remote_temp_dir }}/{{ python_version }}"
+    - "{{ remote_temp_dir }}/compile_python.sh"

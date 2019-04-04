@@ -1,0 +1,51 @@
+- name: add squid.repo
+  copy:
+    src: "squid.repo"
+    dest: "/etc/yum.repos.d/squid.repo"
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Installing dependency packets for squid
+  yum:
+    name:
+      - kernel-headers 
+      - kernel-devel
+      - gcc 
+      - gcc-c++ 
+      - autoconf 
+      - libjpeg 
+      - libjpeg-devel 
+      - libpng 
+      - libpng-devel 
+      - freetype 
+      - freetype-devel 
+      - libxml2 
+      - libxml2-devel 
+      - zlib 
+      - zlib-devel 
+      - glibc 
+      - glibc-devel 
+      - bzip2 
+      - bzip2-devel 
+      - ncurses 
+      - ncurses-devel 
+      - e2fsprogs 
+      - e2fsprogs-devel 
+      - libidn 
+      - libidn-devel 
+      - openssl 
+      - openssl-devel 
+      - make 
+      - cmake 
+      - bison-devel
+      - squid
+    state: latest
+    update_cache: yes
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+- name: change squid http port
+  lineinfile:
+    path: "/etc/squid/squid.conf"
+    regexp: "^http_port="
+    line: "http_port {{ squid_port }}"

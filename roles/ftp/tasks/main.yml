@@ -1,0 +1,17 @@
+---
+# tasks file for ftp
+
+- include: install_vsftpd_by_packagemanager.yaml
+  when: ftp_type == "vsftp" and compile_or_yum == "yum"
+
+- include: install_vsftpd_by_compilesource.yaml
+  when: ftp_type == "vsftp" and compile_or_yum == "compile"
+
+- include: configure_vsftpd.yaml
+  when: ftp_type == "vsftp"
+
+- include: configure_sftp.yaml
+  when: ftp_type == "sftp"
+
+- include: start_ftp.yaml
+  when: ftp_type == "vsftp" or ftp_type == "sftp"

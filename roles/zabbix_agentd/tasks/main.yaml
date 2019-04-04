@@ -1,0 +1,11 @@
+---
+#
+# Description: 通过 defaults/main.yaml 中 选择 包管理器或源码编译 安装
+#       并设置不在 zabbix_server 中 编译 zabbix_agentd
+
+# inventory/hosts.ini 文件中对于 zabbix-agentd 组中的主机 仅安装 zabbix-agentd
+- include: install_by_package.yaml
+  when: install_type == "packageManager"
+
+- include: install_by_source.yaml
+  when: install_type == "compileSource"

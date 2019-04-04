@@ -1,0 +1,23 @@
+# 安装 percona toolkit 工具集
+# 该工具集依赖 163源、所有的局域网机器通过 squid 代理具有访问公网的能力
+# https://www.percona.com/redir/downloads/percona-release/redhat/latest/percona-release-0.1-6.noarch.rpm
+
+- name: install percona-release-0.1-6.noarch.rpm
+  yum:
+    name:
+      - "https://www.percona.com/redir/downloads/percona-release/redhat/latest/percona-release-0.1-6.noarch.rpm"
+    state: present
+    update_cache: yes
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+- name: install dependencies for percona toolkit
+  yum:
+    name:
+      - perl-DBI
+      - perl-DBD-MySQL
+      - perl-Time-HiRes
+      - perl-IO-Socket-SSL
+      - percona-toolkit
+    state: present
+    update_cache: yes
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"

@@ -1,0 +1,35 @@
+---
+# defaults file for docker
+
+# docker 的配置目录(可能不存在,自创建)
+docker_conf_dir: "/etc/docker"
+# 是否搭建 docker 的私服
+is_private_registry: false
+
+##################################################################
+# docker 私服 registry 的相关说明                                 #
+# 官方目前存在两种 registry 的代码服务器                           #
+# (旧版本: python  和 新版本: go)  ===> 建议使用 go 编写的新版本    #
+##################################################################
+
+# 映射到实体机的资源
+export_port: 5000
+export_store_path: "/usr/local/docker_registry"
+
+# docker 资源使用
+docker_registry_port: 5000
+docker_port: 5000
+docker_store_path: "/var/lib/registry"
+
+# 启用 https 时所需的配置参数
+# 访问私服的 域名 地址
+host_url: https://registry.iwendao.vip
+# 登录的认证密码
+secret: yoogurt-taxi-123!@#
+# 用于 https 认证的 crt 文件
+tls_certificate: ""
+# 用于 https 认证的 key 文件
+tls_key: ""
+
+# 需要添加到 docker 组的用户, 如果有多个用户，则使用 ';' 进行分隔
+docker_users: "ztgame"

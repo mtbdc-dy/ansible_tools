@@ -1,0 +1,19 @@
+#!/bin/bash
+
+if [ -f {{ squid_config_dir }}/squid ]
+then
+    . {{ squid_config_dir }}/squid
+fi
+
+SQUID_CONF=${SQUID_CONF:-"{{ squid_config_dir }}/squid.conf"}
+
+CACHE_SWAP=`sed -e 's/#.*//g' ${SQUID_CONF} | grep cache_dir | awk '{ print $3 }'`
+
+for adir in ${CACHE_SWAP}
+do
+    if [ ! -d ${adir}/00 ]
+    then
+        echo -n "init_cache_dir ${adir}... "
+        {{ squid_install_dir }}/sbin/squid -N -z -F -f ${SQUID_CONF} >> {{ squid_cache_dir }}/squid.out 2>&1
+    fi
+done

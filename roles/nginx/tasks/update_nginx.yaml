@@ -1,0 +1,8 @@
+---
+#
+# Description: 平滑升级 nginx
+#
+
+- name: to do
+  debug:
+    msg: "平滑升级 nginx"

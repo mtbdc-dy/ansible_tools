@@ -1,0 +1,72 @@
+#- name: setup vsftpd management procedure on {{ ansible_distribution }}-{{ ansible_distribution_major_version }}
+#  template:
+#    src: "{{ item.src }}"
+#    dest: "{{ item.dest }}"
+#    mode: "{{ item.mode }}"
+#    owner: root
+#    group: root
+#  with_items:
+#    - { src: "vsftpd.sh.j2", dest: "/etc/rc.d/init.d/vsftpd", mode: "0755" }
+#  when: (ansible_distribution == "CentOS" or ansible_os_family == "RedHat") and ansible_distribution_major_version | int == 6
+#
+#- name: setup vsftpd management procedure on {{ ansible_distribution }}-{{ ansible_distribution_major_version }}
+#  template:
+#    src: "{{ item.src }}"
+#    dest: "{{ item.dest }}"
+#    mode: "{{ item.mode }}"
+#    owner: root
+#    group: root
+#  with_items:
+#    - { src: "vsftpd.service.j2", dest: "/usr/lib/systemd/system/vsftpd.service", mode: "0644" }
+#    - { src: "vsftpd.target.j2", dest: "/usr/lib/systemd/system/vsftpd.target", mode: "0644" }
+#    - { src: "vsftpd2.service.j2", dest: "/usr/lib/systemd/system/vsftpd@.service", mode: "0644" }
+#  when: (ansible_distribution == "CentOS" or ansible_os_family == "RedHat") and ansible_distribution_major_version | int == 7
+#  
+#- name: reload ftp service
+#  shell: "systemctl daemon-reload"
+#  when: (ansible_distribution == "CentOS" or ansible_os_family == "RedHat") and ansible_distribution_major_version | int == 7
+#
+#- name: restart ftp service
+#  service:
+#    name: "{{ item.name }}"
+#    state: restarted
+#    enabled: yes
+#  ignore_errors: yes
+#  with_items:
+#    # 通过用户交互输入的 安装类型，重启相关服务
+#    - { name: "vsftpd", default: "vsftp" }
+#    - { name: "sshd", default: "sftp" }
+#  when: ftp_type == item.default
+
+###########################################################
+# 在 centos7 通过源码编译安装后 的 systemctl start vsftpd     
+# 会启动卡死，然后超时退出 ===> 所以就采用 service vsftpd start
+#
+- name: setup vsftpd management procedure
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    owner: root
+    group: root
+  with_items:
+    - { src: "vsftpd.sh.j2", dest: "/etc/rc.d/init.d/vsftpd", mode: "0755" }
+
+- name: reload ftp service
+  shell: "systemctl daemon-reload"
+  when: (ansible_distribution == "CentOS" or ansible_os_family == "RedHat") and ansible_distribution_major_version | int == 7
+
+- name: restart ftp service
+  shell: "/etc/rc.d/init.d/vsftpd restart"
+  when: ftp_type == "vsftp"
+
+- name: restart ftp service
+  service:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+  ignore_errors: yes
+  with_items:
+    # 通过用户交互输入的 安装类型，重启相关服务
+    - "sshd"
+  when: ftp_type == "sftp"

@@ -1,0 +1,50 @@
+# 安装 编译过程依赖的组件
+- name: install dependencies packages for ruby
+  yum:
+    name:
+      - gcc
+      - gcc-c++
+      - openssl
+      - openssl-devel
+      - zlib
+      - zlib-devel
+    state: present
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+- name: upload compile_ruby.sh to remote machine
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0755
+  with_items:
+    - { src: "{{ ruby_source_version }}", dest: "/tmp/{{ ruby_source_version }}" }
+    - { src: "{{ rubygem_source_version }}", dest: "/tmp/{{ rubygem_source_version }}" }
+    - { src: "compile_ruby.sh", dest: "/tmp/compile_ruby.sh" }
+  when: not ruby_result.stat.exists
+
+- name: compile ruby source code
+  command:
+    "/tmp/compile_ruby.sh"
+  environment:
+    RUBY_SOURCE_CODE: "/tmp/{{ ruby_source_version }}"
+    RUBY_INSTALL_DIR: "{{ ruby_install_dir }}"
+    RUBYGEM_SOURCE_CODE: "/tmp/{{ rubygem_source_version }}"
+
+- name: setup ruby environment variables
+  template:
+    src: "ruby_environment_setup.sh.j2"
+    dest: "/etc/profile.d/ruby"
+    mode: 0644
+    owner: root
+    group: root
+
+- name: source /etc/profile
+  shell: "source /etc/profile"
+
+- name: delete source code
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "/tmp/{{ ruby_source_version }}"
+    - "/tmp/{{ rubygem_source_version }}"
+    - "/tmp/compile_ruby.sh"

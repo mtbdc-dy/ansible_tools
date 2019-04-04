@@ -1,0 +1,67 @@
+# 判断目标主机是否已经安装 apache 
+- name: determine whether {{ haproxy_install_dir }} exists
+  stat:
+    path: "{{ haproxy_install_dir }}"
+  register: haproxy_result
+
+# 加入目标主机已经安装了，则报错，并退出该 剧本
+- name: output information
+  fail:
+    msg: "The target host has been installed and withdrawn from the playbook."
+  when: haproxy_result.stat.exists
+
+# 可阅读 haproxy 的源码包中的 README 文件，查看依赖文件
+- name: installing dependency packets for haproxy
+  yum:
+    name:
+      - make
+      - cmake
+      - automake
+      - gcc
+      - gcc-c++
+      - glibc
+      - glibc-devel
+      - openssl
+      - openssl-devel
+      - pcre
+      - pcre-devel
+      - zlib
+      - zlib-devel
+    state: present
+  when: ansible_distribution == "CentOS" or ansible_os_family == "RedHat"
+
+- name: create {{ haproxy_install_dir }}
+  file:
+    path: "{{ item }}"
+    state: directory
+    recurse: yes
+  with_items:
+    - "{{ haproxy_install_dir }}"
+    - "{{ haproxy_conf_dir }}"
+    - "{{ chroot }}"
+
+- name: upload {{ haproxy_source_version }}
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0755
+  with_items:
+    - { src: "{{ haproxy_source_version }}", dest: "{{ remote_temp_dir }}/{{ haproxy_source_version }}" }
+    - { src: "compile_haproxy.sh", dest: "{{ remote_temp_dir }}/compile_haproxy.sh" }
+
+- name: compile haproxy source code
+  command:
+    "{{ remote_temp_dir }}/compile_haproxy.sh"
+  environment:
+    HAPROXY_SOURCE_VERSION: "{{ remote_temp_dir }}/{{ haproxy_source_version }}"
+    HAPROXY_INSTALL_DIR: "{{ haproxy_install_dir }}"
+    TARGET_LINUX_KERNEL_VERSION: "{{ target_linux_kernel_version }}"
+    ANSIBLE_ARCHITECTURE: "{{ ansible_architecture }}"
+
+- name: delete haproxy source code
+  file: 
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ remote_temp_dir }}/compile_haproxy.sh"
+    - "{{ remote_temp_dir }}/{{ haproxy_source_version }}"

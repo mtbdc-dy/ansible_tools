@@ -1,0 +1,12 @@
+- name: setup service start or stop
+  service:
+    name: "{{ item.name }}"
+    state: "{{ item.state }}"
+    enabled: "{{ item.selfboot }}"
+  # 在centos6/7 下对应的 防火墙服务是不同,忽略报错
+  ignore_errors: yes
+  with_items:
+    # 启停 服务列表
+    - { name: "firewalld", state: "started", selfboot: yes }
+    - { name: "iptables", state: "started", selfboot: yes }
+    - { name: "ntpdate", state: "started", selfboot: yes }

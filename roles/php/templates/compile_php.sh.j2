@@ -1,0 +1,232 @@
+#!/bin/bash -
+#===============================================================================
+#
+#          FILE: compile_php.sh
+#
+#         USAGE: ./compile_php.sh
+#
+#   DESCRIPTION: 
+#           (1) 利用 ansible command 模块注入相关的环境变量，源码编译安装 php
+#           (2) 所有源码文件类型 均以 .tar.gz 为尾缀的压缩文件
+#           (3) 注意不同版本的 php-x.x.xx.tar.gz 的编译参数不同 可参考: 
+#                   ./configure --help
+#
+#       OPTIONS: ---
+#  REQUIREMENTS: ---
+#          BUGS: ---
+#         NOTES: ---
+#        AUTHOR: Stalker-lee (), 1318895540@qq.com
+#  ORGANIZATION: 
+#       CREATED: 2019/01/21 09时44分47秒
+#      REVISION:  ---
+#===============================================================================
+
+set -o nounset                                  # Treat unset variables as an error
+set -o errexit
+
+# 源码编译安装需要超级管理权限
+if [ ${UID} -ne 0 ]
+then
+    echo -e "You should switch to root!"
+    exit 1
+fi
+
+# LAM 源码安装 测试 php 安装
+#PHP_SOURCE_FILE="/tmp/php-5.6.39.tar.gz"
+#PHP_INSTALL_DIR="/usr/local/php"
+#LIBICONV_SOURCE_FILE="/tmp/libiconv-1.15.tar.gz"
+#LIBXML_SOURCE_FILE="/tmp/libxml2-2.9.9.tar.gz"
+#LIBXML_INSTALL_DIR="/usr/local/php/libxml"
+#LIBICONV_INSTALL_DIR="/usr/local/php/libiconv"
+#LIBMCRYPT_SOURCE_FILE="/tmp/libmcrypt-2.5.7.tar.gz"
+#LIBMCRYPT_INSTALL_DIR="/usr/local/php/libmcrypt"
+#WITH_MYSQLI="/usr/local/mysql/bin/mysql_config"
+#WITH_MYSQL_SOCK="/usr/local/mysql/running_info/mysql.sock"
+#WITH_PDO_MYSQL="/usr/local/mysql"
+#WITH_APXS="/usr/local/apache_web/httpd/bin/apxs"
+
+# 编译过程信息输出
+readonly COMPILE_INFO=/tmp/compile_php.log
+echo "" > ${COMPILE_INFO}
+
+declare -ra ENVIRONMENT_VARIABLES=(PHP_SOURCE_FILE PHP_INSTALL_DIR LIBXML_SOURCE_FILE LIBXML_INSTALL_DIR LIBICONV_SOURCE_FILE LIBICONV_INSTALL_DIR LIBMCRYPT_SOURCE_FILE LIBMCRYPT_INSTALL_DIR WITH_MYSQLI WITH_MYSQL_SOCK WITH_PDO_MYSQL WITH_APXS)
+for variable in ${ENVIRONMENT_VARIABLES[*]}
+do
+    # shell 高级编程中 的 "变量间接引用"
+    eval temp=\$${variable}
+    if [ "${temp}" == "" ]
+    then
+        echo "$LINENO: \$${variable} is NULL!"
+        exit 1
+    fi
+done
+
+# 源码编译安装
+# args: $1 --> 绝对路径的源码文件; $2 ---> 安装目录
+# return: 0 ---> success; 1-255 ---> error code
+function compile_source()
+{
+    local source_file=$1
+    local install_dir=$2
+
+    local result=0
+    # 安装目录不存在，则创建
+    [ ! -d ${install_dir} ] && mkdir -p ${install_dir}
+    if [ -f ${source_file} ]
+    then
+        local base_dir=$(dirname ${source_file})
+        local source_dir=$(basename ${source_file} ".tar.gz")
+
+        cd ${base_dir}
+        tar -zxf $(basename ${source_file}) -C ${base_dir}
+        if [ $? -eq 0 -a -d ${source_dir} ]
+        then
+            cd ${source_dir}
+            ./configure --prefix=${install_dir} >> ${COMPILE_INFO} 2>&1
+            [ $? -ne 0 ] && exit 1
+
+            make >> ${COMPILE_INFO} 2>&1
+            if [ $? -eq 0 ]
+            then
+                echo "${LIBICONV_INSTALL_DIR}/lib" > /etc/ld.so.conf.d/libiconv.conf
+                /usr/sbin/ldconfig -n 
+            else
+                exit 1
+            fi
+
+            make install >> ${COMPILE_INFO} 2>&1
+            [ $? -ne 0 ] && exit 1
+
+            cd ../
+            rm -rf ${source_dir}
+        else
+            echo -e "unarchive ${source_file} failed!"
+            result=1
+        fi
+    else
+        echo -e "${source_file} is not exists!"
+        result=1
+    fi
+
+    return ${result}
+}
+
+echo -ei"\n \033[31m Starting install libiconv \033[0m \n" >> ${COMPILE_INFO}
+# 安装 libiconv
+compile_source ${LIBICONV_SOURCE_FILE} ${LIBICONV_INSTALL_DIR}
+[ $? -ne 0 ] && exit 1
+
+echo -e "\n \033[31m Starting install libmcrypt \033[0m \n" >> ${COMPILE_INFO}
+# 安装 libmcrypt
+compile_source ${LIBMCRYPT_SOURCE_FILE} ${LIBMCRYPT_INSTALL_DIR}
+[ $? -ne 0 ] && exit 1
+
+echo -e "\n \033[31m Starting install libxml2 \033[0m \n" >> ${COMPILE_INFO}
+compile_source ${LIBXML_SOURCE_FILE} ${LIBXML_INSTALL_DIR}
+[ $? -ne 0 ] && exit 1
+
+echo -e "\n \033[31m Move LDAP class library to /usr/lib/ directory \033[0m \n" >> ${COMPILE_INFO}
+# zabbix 依赖 ldap 模
+LDAP=$(ls -alh /usr/lib64/libldap*)
+if [ "${LDAP}" != "" ]
+then
+    cp -frp /usr/lib64/libldap* /usr/lib/
+else
+    echo -e "\n \033[31m ldap ldap-devel package are not installed \033[0m \n"
+    exit 1
+fi
+
+# jinja 模板
+{% if dependencies_mysql %}
+if [ ! -f ${WITH_MYSQLI} -a ! -f ${WITH_MYSQL_SOCK} -a ! -d ${WITH_PDO_MYSQL} ]
+then
+    echo -e "\n \033[31m MySQL dependencies components do not exist. \033[0m \n"
+    exit 1
+fi
+{% endif %}
+
+{% if dependencies_apache %}
+if [ ! -x ${WITH_APXS} ]
+then
+    echo -e "\n \033[31m Apxs dependency components do not exist. \033[0m \n"
+    exit 1
+fi
+{% endif %}
+
+echo -e "\n \033[31m Starting install php \033[0m \n" >> ${COMPILE_INFO}
+# 编译 php
+[ ! -d ${PHP_INSTALL_DIR}/etc ] && mkdir -p ${PHP_INSTALL_DIR}/etc
+if [ -f ${PHP_SOURCE_FILE} ]
+then
+    base_dir=$(dirname ${PHP_SOURCE_FILE})
+    php_dir=$(basename ${PHP_SOURCE_FILE} ".tar.gz")      # 源码包文件以 .tar.gz
+
+    cd ${base_dir}
+    tar -zxf $(basename ${PHP_SOURCE_FILE}) -C ${base_dir}
+    if [ $? -eq 0 -a -d ${php_dir} ]
+    then
+        cd ${php_dir}
+        ./configure --prefix=${PHP_INSTALL_DIR} \
+--with-config-file-path=${PHP_INSTALL_DIR}/etc \
+{% if dependencies_mysql %}
+--with-mysqli=${WITH_MYSQLI} \
+--with-mysql-sock=${WITH_MYSQL_SOCK} \
+--with-pdo-mysql=${WITH_PDO_MYSQL} \
+{% endif %}
+--with-libxml-dir=${LIBXML_INSTALL_DIR} \
+--with-gd --with-snmp \
+--enable-bcmath --enable-shmop \
+--enable-sysvsem --enable-inline-optimization \
+--enable-opcache --enable-mbregex \
+--enable-fpm --enable-mbstring \
+--enable-ftp --enable-gd-native-ttf \
+--with-openssl --enable-pcntl \
+--enable-sockets --with-xmlrpc \
+--with-zlib --with-ldap \
+--enable-zip --enable-soap --without-pear \
+--with-gettext --enable-session \
+--with-freetype-dir \
+--with-jpeg-dir \
+--with-iconv=${LIBICONV_INSTALL_DIR} \
+--with-mcrypt=${LIBMCRYPT_INSTALL_DIR} \
+--with-curl --enable-ctype --enable-mysqlnd \
+{% if dependencies_apache %}
+--with-apxs2=${WITH_APXS}
+{% endif %}
+
+        if [ $? -ne 0 ]
+        then
+            echo -e "\n \033[31m ./configure failed! \033[0m \n" >> ${COMPILE_INFO} 2>&1
+            exit 1
+        fi
+
+        if [ -f ./Makefile  ]
+        then    
+            #  /usr/bin/ld: ext/ldap/.libs/ldap.o: undefined reference to symbol 'ber_scanf'
+            #  /usr/lib64/liblber-2.4.so.2: error adding symbols: DSO missing from command line collect2: error: ld returned 1 exit status
+            #  make: *** [sapi/cli/php] Error 1
+
+            # 在执行 ./configure 后
+            # vim Makefile   
+            # 搜索开头是 'EXTRA_LIBS' 这一行 在结尾加上 '-llber'
+            sed -i "/^EXTRA_LIBS/ s/$/\ -llber/" ./Makefile
+        fi
+
+        make >> ${COMPILE_INFO} 2>&1
+        [ $? -ne 0 ] && exit 1
+
+        make install >> ${COMPILE_INFO} 2>&1
+        [ $? -ne 0 ] && exit 1
+
+        cd ../
+        rm -rf ${php_dir}
+    else
+        echo -e "unarchive ${PHP_SOURCE_FILE} failed!" &>> ${COMPILE_INFO}
+        exit 1
+    fi
+else
+    echo -e "${PHP_SOURCE_FILE} is not exists!" &>> ${COMPILE_INFO}
+    exit 1
+fi
+
+exit 0

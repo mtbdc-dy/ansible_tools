@@ -1,0 +1,10 @@
+---
+# tasks file for php
+
+- include: install_php_by_source.yaml
+
+- include: configure_php.yaml
+
+# 当设置 apache 支持 php 解析时
+- include: configure_apache_to_support_php.yaml
+  when: dependencies_apache

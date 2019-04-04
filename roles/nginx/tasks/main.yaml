@@ -1,0 +1,5 @@
+- include: update_nginx.yaml
+  when: install_type == "update"
+
+- include: install_by_source.yaml
+  when: install_type == "compileSource"

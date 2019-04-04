@@ -1,0 +1,12 @@
+[Unit]
+Description=Vsftpd ftp daemon
+After=network.target
+PartOf=vsftpd.target
+
+[Service]
+Type=forking
+# 源码编译安装后的路径: /usr/local/sbin/vsftpd
+ExecStart=/usr/local/sbin/vsftpd {{ vsftpd_conf_dir }}/%i.conf
+
+[Install]
+WantedBy=vsftpd.target

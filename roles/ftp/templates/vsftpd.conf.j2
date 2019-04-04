@@ -1,0 +1,60 @@
+#关闭匿名访问
+anonymous_enable=NO
+
+#启用本地系统用户，包括虚拟用户
+local_enable=YES
+
+#允许执行FTP命令，如果禁用，将不能进行上传、下载、删除、重命名等操作
+write_enable=YES
+
+#本地用户umask值
+local_umask=022
+
+dirmessage_enable=YES
+
+#启用日志
+xferlog_enable=YES
+
+xferlog_std_format=YES
+
+#关闭ftp-data端口，相当于不使用主动模式
+connect_from_port_20=NO
+
+#限制用户不能离开FTP主目录，启用并设置例外用户清单
+chroot_local_user=YES
+chroot_list_enable=NO
+chroot_list_file={{ vsftpd_conf_dir }}/chroot_list
+
+ascii_upload_enable=YES
+ascii_download_enable=YES
+
+#使用ipv4进行监听
+listen=YES
+listen_ipv6=NO
+
+#pam认证文件名称，位于/etc/pam.d/
+pam_service_name=vsftpd
+
+#启用全局用户例外清单
+userlist_enable=YES
+userlist_file={{ vsftpd_conf_dir }}/user_list
+
+#启用tcp封装
+#tcp_wrappers=YES
+
+#虚拟用户权限是否与本地用户相同。为NO时，将与匿名用户的权限相同，在每个虚拟用户配置文件里设置匿名用户的选项等于虚拟用户的权限
+virtual_use_local_privs=YES
+
+#启用guest后，所有非匿名用户将映射到guest_username进行访问，包括本地系统用户也不能使用，并且转换成一个虚拟用户，与其他虚拟用户的配置方法一样
+guest_enable=YES
+guest_username={{ vsftpd_user }}
+
+#虚拟用户配置文件目录
+user_config_dir={{ vsftpd_virtual_dir }}
+
+allow_writeable_chroot=YES
+
+#启用pasv模式
+pasv_enable=YES
+pasv_min_port={{ vsftpd_pasv_min_port }}
+pasv_max_port={{ vsftpd_pasv_max_port }}

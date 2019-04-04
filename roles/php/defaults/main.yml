@@ -1,0 +1,52 @@
+---
+# defaults file for php
+
+# 搭建 LAMP 或 LNMP 环境的 php 的依赖组件
+dependencies_common: false
+dependencies_mysql: false
+dependencies_apache: true
+dependencies_nginx: false
+
+# php 参数设置
+php_version: php-5.6.39.tar.gz
+php_install_dir: "/usr/local/php"
+php_conf_dir: "{{ php_install_dir }}/etc"
+
+# 依赖 mysql 组件
+with_mysqli: "/usr/local/mysql/bin/mysql_config"
+with_mysql_sock: "/usr/local/mysql/running_info/mysql.sock"
+with_pdo_mysql: "/usr/local/mysql"
+
+# apache 的安装目录
+apache_install_dir: "/usr/local/apache_web/httpd"
+with_apxs2: "{{ apache_install_dir }}/bin/apxs"
+apache_conf_dir: "{{ apache_install_dir }}/etc"
+
+libmcrypt_version: libmcrypt-2.5.7.tar.gz
+with_mcrypt: "{{ php_install_dir }}/libmcrypt"
+
+libiconv_version: libiconv-1.15.tar.gz
+with_iconv: "{{ php_install_dir }}/libiconv"
+
+libxml_version: "libxml2-2.9.9.tar.gz"
+with_libxml: "{{ php_install_dir }}/libxml2"
+
+# zabbix 依赖 PHP 组件的最小资源设置
+memory_limit: 256       # zabbix 要求的内存值最小为 128M
+upload_max_filesize: 4  # zabbix 要求的最小值为 2M
+post_max_size: 32       # zabbix 要求的最小值为 16M
+max_execution_time: 300	# 
+max_input_time: 300     #
+date_timezone: Asia/Shanghai	#时区
+
+# php-fpm 的优化调优
+pm: dynamic	              # 表示使用哪种进程数量管理方式
+pm_max_children: 300	    # 京台方式下开启的 php-fpm 进程数量
+pm_start_servers: 20      # 动态方式下的启动 php-fpm进程数量
+pm_min_spare_servers: 5   # 动态方式下的最小 php-fpm进程数量
+pm_max_spare_servers: 35  # 动态方式下的最大 php-fpm进程数量
+pm_max_requests: 10240	  # 最大请求数
+request_terminate_timeout: 20
+
+php_fpm_ip: 127.0.0.1
+php_fpm_port: 9000

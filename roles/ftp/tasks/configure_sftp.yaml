@@ -1,0 +1,48 @@
+- name: create sftp group
+  group:
+    name: "{{ sftp_group }}"
+    state: present
+
+# 说明: 经测试，user 模块中的 password 被设置的密码含有特殊字符时，在进行 sftp 登陆认证时
+# 会验证不过，这时候可以手动重置 登陆用户的密码  <----- 算是一个模块的 bug
+- name: create sftp user
+  user:
+    name: "{{ sftp_user }}"
+    comment: "sftp login user"
+    create_home: no
+    shell: /sbin/nologin
+    state: present
+    password: "{{ sftp_passwd }}"
+    group: "{{ sftp_group }}"
+    system: no
+
+- name: create sftp data home directory
+  file:
+    path: "{{ sftp_data_dir }}"
+    state: directory
+    owner: "root"
+    group: "root"
+    mode: 0755
+
+- name: configure /etc/ssh/sshd_config
+  lineinfile:
+    path: "{{ item.file }}"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+  with_items:
+    - { file: "/etc/ssh/sshd_config", regexp: "\/usr\/libexec\/openssh\/sftp-server", line: "" }
+    - { file: "/etc/ssh/sshd_config", regexp: "Subsystem\ sftp\ internal-sftp", line: "Subsystem\ sftp\ internal-sftp" }
+    - { file: "/etc/ssh/sshd_config", regexp: "Match\ Group\ {{ sftp_group }}", line: "Match\ Group\ {{ sftp_group }}" }
+    - { file: "/etc/ssh/sshd_config", regexp: "ChrootDirectory\ {{ sftp_data_dir }}", line: "ChrootDirectory\ {{ sftp_data_dir }}" }
+    - { file: "/etc/ssh/sshd_config", regexp: "AllowTcpForwarding\ no", line: "AllowTcpForwarding no" }
+    - { file: "/etc/ssh/sshd_config", regexp: "ForceCommand\ internal-sftp", line: "ForceCommand\ internal-sftp" }
+
+- name: modify "{{ sftp_data_dir }}/{{ sftp_user }}" property
+  file:
+    path: "{{ sftp_data_dir }}/{{ sftp_user }}"
+    state: directory
+    mode: 0755
+    owner: "{{ sftp_user }}"
+    group: "{{ sftp_group }}"
+    recurse: yes

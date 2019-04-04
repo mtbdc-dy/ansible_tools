@@ -1,0 +1,51 @@
+# ansible 远程使用的为 no-login shell,所以：环境变量 env 和 whereis、which、locate、echo ${JAVA_HOME} 等都不能使用
+# 
+# 使用如下方法，当目标主机 jdk 存在时，能够成功；但当 不存在，该 task 会报错
+# - name: determine whether JDK exists
+#   shell: "grep -wrn --color \"^JAVA_HOME=\" /etc/ ~/"
+#   register: jdk_result
+
+- name: upload judge_jdk.sh
+  copy:
+    src: "judge_jdk.sh"
+    dest: "{{ remote_temp_dir }}/judge_jdk.sh"
+    mode: 0755
+
+- name: determin whether JDK exists
+  command:
+    "{{ remote_temp_dir }}/judge_jdk.sh"
+  register: jdk_result
+
+- name: upload {{ jdk_version }}
+  copy:
+    src: "{{ jdk_version }}"
+    dest: "{{ remote_temp_dir }}/{{ jdk_version }}"
+    mode: 0755
+  when: jdk_result.stdout == "no"
+
+- name: unarchive {{ jdk_version }}
+  unarchive:
+    src: "{{ remote_temp_dir }}/{{ jdk_version }}"
+    dest: "{{ remote_temp_dir }}"
+    remote_src: yes
+  when: jdk_result.stdout == "no"
+
+- name: install jdk
+  shell: "{{ item }}"
+  with_items:
+    - "mkdir -p {{ jdk_install_dir }}"
+    - "mv -f {{ remote_temp_dir }}/{{ jdk_unarchive_file }}/* {{ jdk_install_dir }}"
+  when: jdk_result.stdout == "no"
+
+- name: setup jdk environment variables
+  template:
+    src: "jdk_environment_variables_setup.j2"
+    dest: "/etc/profile.d/jdk_environment_variables.sh"
+    mode: 0644
+    owner: "root"
+    group: "root"
+  when: jdk_result.stdout == "no" 
+
+# 使 jdk 环境变量生效
+- name: source /etc/profile
+  shell: "source /etc/profile"
