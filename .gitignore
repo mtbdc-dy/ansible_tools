@@ -1,0 +1,12 @@
+*.zip
+*.rar
+*.via
+*.tmp
+*.err
+*.tar.gz
+*.rpm
+*.deb
+*.retry
+test_hosts.ini
+.DS_Store 
+*/.DS_Store
