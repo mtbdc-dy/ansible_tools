@@ -1,0 +1,18 @@
+# 目标主机进行操作的临时目录
+remote_temp_dir: /tmp
+
+# 代理服务器的地址,默认为 空
+# https_proxy=http://ip:3128
+# http_proxy=http://ip:3128
+http_proxy: ""
+https_proxy: ""
+
+# 时间服务器
+ntpdate_server: ntp1.aliyun.com
+
+# DNS 服务器地址,默认: 114.114.114.114 或 8.8.8.8 
+dns_server: ""
+
+#Set ansible_architecture as amd64 if it's x86_64
+ansible_architecture: "amd64"
+when: ansible_architecture == "x86_64"
